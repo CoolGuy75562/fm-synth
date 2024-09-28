@@ -1,0 +1,9 @@
+*
+# ignore all but these files:
+!.gitignore
+!piano.json
+!test_fm.py
+!test_gui.py
+!README.md
+!fm.py
+!gui.py

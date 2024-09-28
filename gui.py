@@ -69,7 +69,7 @@ class MainWindow(Gtk.Window):
                                               flags=0,
                                               message_type=Gtk.MessageType.QUESTION,
                                               buttons=Gtk.ButtonsType.YES_NO,
-                                              text="deez nuts",
+                                              text=".",
                                               )
             option_dialog.format_secondary_text(
                 "Do wish to open an existing patch?"
