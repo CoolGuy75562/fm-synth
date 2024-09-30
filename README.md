@@ -38,7 +38,9 @@ If you have selected a patch from a file, everything is initialised according to
 ### Operator Parameters
 An operator takes a modulating signal, frequency, and an envelope as inputs, 
 ![untitled(1)](https://github.com/user-attachments/assets/a953457b-4570-42da-b538-5eb278a7f60e)
+
 and gives the output
+
 ![screenshot5](https://github.com/user-attachments/assets/76d08b64-1145-4919-9af4-6bc4c8466256)
 
 ### Plots
@@ -47,7 +49,9 @@ From top to bottom, there is one plot for each operator chain output, a plot of 
 ### Envelope
 If the switch in the bottom left is in the "off" position, turning it on will reveal adsr envelope parameters. If "update output_env" is then pressed, the envelope will be applied to the output, and the output envelope plot will be updated. 
 
+Turning the switch off will remove the envelope from the output and the output envelope plot will become a line at y=1.
+
 ## Contributing
 This is mainly intended as a personal project to learn more about DSP and synthesizers, and to get used to working in Python. It is still a work in progress. Once I have tidied everything up and added some more features I might allow contributions. In the meantime, if you have any feedback or ideas feel free to let me know.
 
-Turning the switch off will remove the envelope from the output and the output envelope plot will become a line at y=1.
+
