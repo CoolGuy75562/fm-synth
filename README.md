@@ -16,6 +16,7 @@ git clone https://github.com/CoolGuy75562/pythonfm.git
 pip3 install soundfile numpy matplotlib
 ```
 ## Usage
+To start the programme, navigate to the pythonfm directory and run
 ```bash
 python3 ./fm.py
 ```
@@ -34,4 +35,15 @@ After pressing "OK" in the dialog, or after choosing an existing patch from a fi
 If you have selected a patch from a file, everything is initialised according to the selected patch. This is how the screen appears if one has selected piano.json:
 ![screenshot4](https://github.com/user-attachments/assets/2d6dc350-58ec-4cc0-88df-c2558e1a114a)
 
+### Operator Parameters
+An operator takes a modulating signal, frequency, and an envelope as inputs, and gives the output
+![untitled(1)](https://github.com/user-attachments/assets/a953457b-4570-42da-b538-5eb278a7f60e)
+![screenshot5](https://github.com/user-attachments/assets/76d08b64-1145-4919-9af4-6bc4c8466256)
 
+### Plots
+From top to bottom, there is one plot for each operator chain output, a plot of the output (the sum of each chain output), and a plot of the output envelope if the patch has one, else just a plot of a line at y=1. 
+
+### Envelope
+If the switch in the bottom left is in the "off" position, turning it on will reveal adsr envelope parameters. If "update output_env" is then pressed, the envelope will be applied to the output, and the output envelope plot will be updated. 
+
+Turning the switch off will remove the envelope from the output and the output envelope plot will become a line at y=1.
