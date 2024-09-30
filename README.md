@@ -7,6 +7,7 @@ basic fm synth implementation in python
 - [Contributing](#contributing)
 
 ## Installation
+This has been tested on Debian, but should work for most linux distributions. The programme currently makes use of the Python os library, so it might not work if one is not using linux.
 1. Clone the repository:
 ```bash
 git clone https://github.com/CoolGuy75562/pythonfm.git
