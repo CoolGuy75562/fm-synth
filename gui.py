@@ -49,21 +49,26 @@ class AlgorithmDialog(Gtk.Dialog):
         return algorithm
     
 class MainWindow(Gtk.Window):
-    """ Gtk window which provides the (only) interface between the user and the Synth object synth.
+    """ Gtk window which provides the interface between the user and the Synth object synth.
     
-    For each synth patch parameter the window has a row of text entry boxes into which the user can type new values for the parameter, and an update button which tells the Synth object to update its parameters to the new values in the text entry row. 
+    For each synth patch parameter the window has a row of text entry boxes into which the user can type new values for the parameter,
+    and an update button which tells the Synth object to update its parameters to the new values in the text entry row. 
 
     The window has a play button which plays the sound of the synth output.
 
-    The window shows respective plots for the outputs of each synth chain, the added output, and the output envelope. The relevant plots are updated when the outputs of the synth are updated.
+    The window shows respective plots for the outputs of each synth chain, the added output, and the output envelope.
+    The relevant plots are updated when the outputs of the synth are updated.
 
-    This class is designed so that the ui and the synth are completely seperate. Beyond some very basic input formatting, everything not gui is done in the Synth object. E.g. MainWindow gives freqs to update to synth and synth updates the output. To plot the output one calls synth.get_output_plot_params().
+    Beyond some very basic input formatting, and the initial creation of the patch file if needed,
+    everything to do with the synth or the patch is done by the gui's Synth object.
+    E.g. MainWindow gives freqs to update to synth and synth updates the output. To plot the output one calls synth.get_output_plot_params().
     """
     def __init__(self, synth):
         super().__init__(title="pythonfm")
 
         if synth is None:
-            """ This dialog gives you the option of opening a (.json) patch file, or creating a new patch which is initialised to some default values by specifying an "algorithm".
+            """ This dialog gives you the option of opening a (.json) patch file,
+            or creating a new patch which is initialised to some default values by specifying an "algorithm".
             """
             option_dialog = Gtk.MessageDialog(transient_for=self,
                                               flags=0,

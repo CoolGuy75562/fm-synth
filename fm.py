@@ -13,12 +13,6 @@ import traceback
 # gui.py
 import gui
 
-# to do:
-# LFO
-# fft plot
-# pass gui an object instead of direct output
-# 
-
 fs = 44100 # sample rate
 seconds = 1
 T = np.linspace(0, seconds, math.ceil(fs*seconds))
@@ -34,7 +28,7 @@ default_patch = {"freqs" : [[14, 1], [1, 1], [1, 1]],
                  "feedback" : [[0, 0], [0, 0], [0, 0]]
                  }
 
-    # returns adsr envelope 
+# returns adsr envelope 
 def envelope(a, d, s_len, s_level, r):
     a_end = np.ceil(a*fs)
     a_int = np.linspace(0, 1, int(a_end))
@@ -62,7 +56,7 @@ class Operator:
 
     # freq: base frequency for sine oscillator
     # mod: modulating wave
-    # env: adsr envelope or scalar
+    # env: adsr envelope or scalar between 0-1
     # fb: no. of times to apply feedback
     # out: wave resulting from fm and envelope
     def __init__(self, freq, mod_idx, env, fb):
@@ -80,9 +74,7 @@ class Operator:
     def set_out(self):
         if self.mod is []:
             raise Exception("modulating signal not set")
-        """ this is actually phase modulation but is equivalent to frequency modulation for sine waves.
-        to do: other waves... sounds like can be done naively with phase accumulator, but also with integral of sinc and window stuff which sounds cool
-        """
+        # this is actually phase modulation
         for i in range(0,self.fb):
             self.mod = np.multiply(self.env,
                                    np.sin(2*np.pi*self.freq*T + self.mod_idx*self.mod))
@@ -116,13 +108,12 @@ class Modulator(Operator):
             raise Exception("modulator output not set or next operator not set")
         (self.next_op).set_mod(self.out)
 
-# the Synth class computes the outputs of the synth with specified patch
-#
-# Synth is given a patch and is then responsible for producing the synth outputs
-# and interfacing with the gui to e.g. change patch or retrieve data to plot
-#
-# the patch data has to be structured in a certain way so only this class is allowed
-# to modify patches
+""" The Synth class provides the interface between the gui and patch data and synth outputs. 
+
+ synth patch data is structured in a specific way so it can only be modified
+using Synth object methods. this ensures that the patch files saved are always valid,
+and synth output is always current after patch has been changed in some way.
+"""
 class Synth:
 
     def __init__(self, patch):
@@ -155,7 +146,6 @@ class Synth:
             self.output = added_outputs
 
     def _update_outputs(self):
-        # doesn't make sense for envelope to come from the funciton
         self._apply_patch()
         self.output_with_envelope = np.multiply(self.output_envelope, self.output)
         
@@ -163,9 +153,10 @@ class Synth:
         self.output_envelope = envelope(*self.patch["output_env"]) if isinstance(self.patch["output_env"], list) else self.patch["output_env"]
         self.output_with_envelope = np.multiply(self.output_envelope, self.output)
         
-    # return patch parameter values as an "unpacked" list
-    # e.g. freqs: [1, [1, 1], [1, 1, 1]]
-    # [1,1,1,1,1,1] is returned
+    """ return patch parameter values as an "unpacked" list
+    if patch["freqs"] = [1, [1, 1], [1, 1, 1]] then get_patch_param("freqs") returns [1,1,1,1,1,1].
+    this is used for initialising parameter entries in gui.
+    """
     def get_patch_param(self, param_name):
         vals = self.patch[param_name]
         new_vals = []
@@ -177,17 +168,25 @@ class Synth:
                 new_vals.append(i)
         return new_vals
 
+    """ returns parameters for envelope function.
+    by default, parameters for output envelope
+    if op parameter is specified, returns envelope parameters for that operator.
+
+    e.g. patch["envs"] = [1, 1, [0.1, 0.1, 0.1, 0.1, 0.1], 1]
+    get_envelope_patch_param(op=3) = [0.1, 0.1, 0.1, 0.1, 0.1]
+    get_envelope_patch_param(op=1) = 1
+    """
     def get_envelope_patch_param(self, op=0):
         if op == 0:
             return self.patch["output_env"]
         else:
-            return self.patch["envs"][op]
+            return self.patch["envs"][op-1]
     
     def has_envelope(self, op=0):
         if op == 0:
             return isinstance(self.patch["output_env"], list)
         else:
-            return isinstance(self.patch["envs"][op], list)
+            return isinstance(self.patch["envs"][op-1], list)
         
     # input: list of numbers as strings e.g. ["1", "2", "3"]
     # for freqs, mod_indices, feedback, output_env
@@ -224,8 +223,7 @@ class Synth:
             data = json.dump(self.patch, f)
         print("patch saved in " + patch_name)
     
-# -- WAVE METHODS --
-
+# these will be used if non-sine fm is implemented
 def makesine(freq):
     T = np.linspace(0, dur, math.ceil(fs*seconds))
     return np.sin(2*np.pi * freq * T)
@@ -264,18 +262,16 @@ def make_patch(freqs, mod_indices, envs, output_env, mod_0, algorithm, feedback)
              "feedback" : feedback}
         return patch
         
+""" given an algorithm, initialises and returns a new patch
 
-
-
-# given an algorithm, initialises and returns a new patch
-#
-# e.g. given algorithm: [1, 2, 3],
-#      returns patch: {"freqs" : [1, [1, 1], [1, 1, 1]],
-#                      ...
-#                      "output_env" : 1
-#                      "mod_0" : [0, 0, 0],
-#                      "algorithm" : [1, 2, 3],
-#                      "feedback" : [0, [0, 0], [0, 0, 0]]}
+ e.g. given algorithm: [1, 2, 3],
+      returns patch: {"freqs" : [1, [1, 1], [1, 1, 1]],
+                      ...
+                      "output_env" : 1
+                      "mod_0" : [0, 0, 0],
+                      "algorithm" : [1, 2, 3],
+                      "feedback" : [0, [0, 0], [0, 0, 0]]}
+"""
 def new_patch_algorithm(algorithm):
     n_ops = int(np.sum(algorithm))
     freqs = reshape_list([1]*n_ops, algorithm)
@@ -339,6 +335,9 @@ def get_spectrum_plot_params(wave):
 
 
 # -- HELPER METHODS --
+
+# given an algorithm, reshapes a list for that algorithm
+# shape = [1, 2, 3], vals = [1, 1, 1, 1, 1, 1], returns [1, [1, 1], [1, 1, 1]]
 def reshape_list(vals, shape):
     new_vals = []
     vals_idx = 0
@@ -354,6 +353,8 @@ def reshape_list(vals, shape):
             new_vals.append(vals_mbr)
     return new_vals
 
+# this converts a parameter to its appropriate type.
+# confusingly, strlist can be either a list of strings, or a string.
 def strlist_to_nums(strlist, param):
     param_type = {"freqs" : float,
                   "mod_indices" : float,
@@ -364,16 +365,7 @@ def strlist_to_nums(strlist, param):
                   "feedback" : int}
     return [param_type[param](a) for a in strlist] if isinstance(strlist, list) else param_type[param](strlist)
 
-def get_updated_output(patch, vals, param_name):
-    vals = strlist_to_nums(vals, param_name)
-    vals = reshape_list(vals, patch["algorithm"])
-    patch[param_name] = vals
-    output, outputs, added_outputs= apply_patch(patch)
-    return output, added_outputs, patch
-
-
 def main():
-
     # read file without having to go through the gui file dialogue
     if len(sys.argv) > 1:
         patch_to_read = sys.argv[1]
