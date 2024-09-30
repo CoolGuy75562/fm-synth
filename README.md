@@ -43,6 +43,8 @@ and gives the output
 
 ![screenshot5](https://github.com/user-attachments/assets/76d08b64-1145-4919-9af4-6bc4c8466256)
 
+For more information see Chowning (1973)
+
 ### Plots
 From top to bottom, there is one plot for each operator chain output, a plot of the output (the sum of each chain output), and a plot of the output envelope if the patch has one, else just a plot of a line at y=1. 
 
