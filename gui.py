@@ -118,12 +118,12 @@ class MainWindow(Gtk.Window):
         algorithm = self.synth.get_patch_param("algorithm")
         op_count = 1
         for i in algorithm:
-            for j in range(0,i):
-                op_count += 1
-                header_label = "op" + str(i+1)
+            for j in range(i):
+                header_label = "op" + str(op_count)
                 header = Gtk.Label(label=header_label)
                 self.headers.append(header)
-            
+                op_count += 1
+                
         # play button
         self.play_button = Gtk.Button(label="play")
         self.play_button.connect("clicked", self.on_play_button_clicked)
