@@ -22,19 +22,21 @@ To start the programme, navigate to the pythonfm directory and run
 python3 ./fm.py
 ```
 You will be given the choice between creating a new patch, or opening an existing patch from a file:
-![screenshot1](https://github.com/user-attachments/assets/8d52d986-b6e7-40b3-a6f6-5e7a528bbc0f)
+![screenshot1](https://github.com/user-attachments/assets/c0223d25-7e8e-4f68-abac-cc5fdeb66398)
 
 If you choose to create a new patch, a dialog appears for you to enter the "algorithm" for your new patch:
-![screenshot2](https://github.com/user-attachments/assets/31d2ef5c-4981-4cf4-a8da-c3951dfffdb3)
+![screenshot2](https://github.com/user-attachments/assets/d2d04a97-5468-489e-b073-9a38ab295220)
 
-For each nonzero entry a "chain" of operators of that length will be created. The final output of the synthesizer is the sum of the output of each operator chain. In this example, three chains of two operators are created, so the algorithm has 2+2+2=6 operators in total. Operators are numbered from top to bottom, then left to right, as in the following diagram:
+For each nonzero entry a "chain" of operators of that length will be created. The final output of the synthesizer is the sum of the output of each operator chain. If sets the algorithm to be (2, 2, 2), three chains of two operators are created, so the algorithm has 2+2+2=6 operators in total. Operators are numbered from top to bottom, then left to right, as in the following diagram:
 ![diagram](https://github.com/user-attachments/assets/6250adde-6b1c-42dd-bbfd-b951d9d9ede0)
 
 After pressing "OK" in the dialog, or after choosing an existing patch from a file, you are brought to the main screen. If you have created a new patch, the parameters of the operators will be initialised to some default values:
-![screenshot3](https://github.com/user-attachments/assets/25f328c4-fe15-4b6b-b0a0-71f3e33277de)
+![screenshot3](https://github.com/user-attachments/assets/9e339bff-6705-4c3e-8b58-967716a04194)
 
-If you have selected a patch from a file, everything is initialised according to the selected patch. This is how the screen appears if one has selected piano.json:
-![screenshot4](https://github.com/user-attachments/assets/2d6dc350-58ec-4cc0-88df-c2558e1a114a)
+If you have selected a patch from a file, the parameters are all initialised to the values in the patch. This is how the screen appears if one has selected piano.json:
+![screenshot4](https://github.com/user-attachments/assets/8baf9c6b-d0cd-4228-a8d2-c1cc00d98f94)
+
+Now that you have created or opened a patch, you are ready to listen to the sound it makes by pressing the "play" button, or experiment with the parameters.
 
 ### Operator Parameters
 An operator takes a modulating signal, frequency, and an envelope as inputs, 
