@@ -212,11 +212,11 @@ class Synth:
     def get_spectrum_plot_params(self):
         pass
 
-    # feels sketchy
+    # sketchy
     def get_output_plot_params(self, output_num=0):
         output_list = [self.output]
         output_list = output_list + self.chain_outputs
-        return T[0:410], output_list[output_num][0:410]
+        return T[0:441], output_list[output_num][0:441]
 
     def save_patch(self, patch_name):
         with open(patch_name, 'w') as f:
