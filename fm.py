@@ -65,19 +65,19 @@ class Operator:
     # env: adsr envelope or scalar between 0-1
     # fb: no. of times to apply feedback
     # out: wave resulting from fm and envelope
-    def __init__(self, freq, mod_idx, env, fb):
+    def __init__(self, freq, mod_idx, env, fb, mod):
         self.freq = freq*note
         self.mod_idx = mod_idx
         self.env =  env if not isinstance(env, list) else envelope(*env)
         self.fb = fb
-        self.mod = []
-        self.out = []
+        self.mod = mod
+        self.update_out() # sets self.out
 
     def set_mod(self, mod):
         self.mod = mod
 
         # change so feedback mod is different to external input mod
-    def set_out(self):
+    def update_out(self):
         assert self.mod is not [], "modulating signal not set"
         # this is actually phase modulation
         for i in range(0,self.fb):
@@ -85,31 +85,6 @@ class Operator:
                                    np.sin(2*np.pi*self.freq*T + self.mod_idx*self.mod))
         self.out = np.multiply(self.env,
                                np.sin(2*np.pi*self.freq*T + self.mod_idx*self.mod))
-
-# the carrier is the final operator in a "chain" of operators. the output of a carrier is the resulting wave 
-class Carrier(Operator): 
-    
-    def __init__(self, freq, mod_idx, env, fb):
-        super().__init__(freq, mod_idx, env, fb)
-
-    def get_out(self):
-        assert self.out is not [], "carrier output not set"
-        return self.out
-
-# modulator output always goes to another operator
-class Modulator(Operator):
-
-    def __init__(self, freq,  mod_idx, env, fb):
-        self.next_op = []
-        super().__init__(freq, mod_idx, env, fb)
-
-    def set_next_op(self, next_op):
-        self.next_op = next_op
-        
-    def set_next_mod(self):
-        assert self.out is not [], "modulator output not set"
-        assert self.next_op is not [], "next operator not set"
-        (self.next_op).set_mod(self.out)
 
 """ The Synth class provides the interface between the gui and patch data and synth outputs. 
 
@@ -129,7 +104,8 @@ class Synth:
         self.n_chains = len(self.chain_outputs)
         
     def _apply_patch(self):
-        outputs = []
+        chain_outputs = []
+        chains = []
         for a, f, mi, e, m_0, fb in zip(self.patch["algorithm"],
                                         self.patch["freqs"],
                                         self.patch["mod_indices"],
@@ -137,15 +113,16 @@ class Synth:
                                         self.patch["mod_0"],
                                         self.patch["feedback"]):
             if a > 1:
-                outputs.append(op_chain(f, mi, e, m_0, fb))
+                chain_output, chain = op_chain(f, mi, e, m_0, fb)
+                chain_outputs.append(chain_output)
+                chains.append(chain)
             else:
-                carrier = Carrier(f, mi, e, fb)
-                carrier.set_mod(m_0)
-                carrier.set_out()
-                outputs.append(carrier.get_out())
-
-            added_outputs = addsyn(outputs)
-            self.chain_outputs = outputs
+                carrier = Operator(f, mi, e, fb, m_0)
+                chain_outputs.append(getattr(carrier, 'out'))
+                chains.append(carrier)
+            added_outputs = addsyn(chain_outputs)
+            self.chains = chains
+            self.chain_outputs = chain_outputs
             self.output = added_outputs
 
     def _update_outputs(self):
@@ -289,29 +266,22 @@ def new_patch_algorithm(algorithm):
 
 
 
-# returns output of carrier from "chain" of operators, e.g.
-# M -> M -> M -> C
-# is a chain of four operators.
-#
-# implementation feels janky
+""" returns output of carrier from "chain" of operators, e.g.
+ M -> M -> M -> C
+is a chain of four operators
+"""
 def op_chain(freqs, mod_indices, envs, mod_0, feedbacks):
-    curr_op = Modulator(freqs[0], mod_indices[0], envs[0], feedbacks[0])
-    curr_op.set_mod(mod_0)
-    curr_op.set_out()
-    i = 1
-    while i < len(freqs)-1:
-        next_op = Modulator(freqs[i], mod_indices[i], envs[i], feedbacks[i])
-        curr_op.set_next_op(next_op)
-        curr_op.set_next_mod()
-        next_op.set_out()
+    chain = []
+    curr_op = Operator(freqs[0], mod_indices[0], envs[0], feedbacks[0], mod_0)
+    chain.append(curr_op)
+    for freq, mi, env, fb in zip(freqs[1:],
+                                 mod_indices[1:],
+                                 envs[1:],
+                                 feedbacks[1:]):
+        next_op = Operator(freq, mi, env, fb, getattr(curr_op, 'out'))
+        chain.append(next_op)
         curr_op = next_op
-        i += 1
-
-    last_op = Carrier(freqs[i], mod_indices[i], envs[i], feedbacks[i])
-    curr_op.set_next_op(last_op)
-    curr_op.set_next_mod()
-    last_op.set_out()
-    return last_op.get_out()
+    return getattr(curr_op, 'out'), chain
 
 # for testing
 def plot_results(output, outputs, int_end):
