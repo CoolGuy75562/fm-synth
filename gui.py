@@ -1,7 +1,7 @@
 import gi
 import fm # ./fm.py
 from matplotlib.backends.backend_gtk3agg import \
-    FigureCanvasGTK3Agg as FigureCanvas
+    FigureCanvasGTK3Agg as FigureCanvas # for figures in gtk window
 from matplotlib.figure import Figure
 import numpy as np
 
@@ -253,16 +253,21 @@ Everything to do with the synth itself is done in the synth object.
     
     # same as init_entry_row but for envelope parameters
     def init_envelope_entry_row(self, has_env, op=0):
-        env = self.synth.get_envelope_patch_param(op)
+        env_params = self.synth.get_envelope_patch_param(op)
         entries = []
-        for i in range(0, 5):
-            entry = Gtk.Entry()
-            entry.set_editable(True)
-            if has_env:
-                entry.set_text(str(env[i]))
-            else:
-                entry.set_text(str(fm.default_patch["output_env"][i]))
+        initial_vals = env_params if has_env else fm.default_patch["output_env"]
+        for initial_val in initial_vals:
+            entry = Gtk.SpinButton()
+            adjustment = Gtk.Adjustment(upper=1,
+                                        lower=0,
+                                        step_increment=0.005,
+                                        page_increment=0.1
+                                        )
+            entry.set_adjustment(adjustment)
+            entry.set_digits(4)
+            if not has_env:
                 self.to_hide.append(entry)
+            entry.set_value(initial_val)
             entries.append(entry)
         return entries
 
@@ -304,7 +309,7 @@ Everything to do with the synth itself is done in the synth object.
         self.update_plot()
 
     def on_update_output_env_button_clicked(self, widget):
-        output_env = [oe.get_text() for oe in self.output_env_entries]
+        output_env = [oe.get_value() for oe in self.output_env_entries]
         self.synth.set_patch_param(output_env, "output_env")
         self.update_plot()
         

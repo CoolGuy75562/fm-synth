@@ -28,7 +28,8 @@ default_patch = {"freqs" : [[14, 1], [1, 1], [1, 1]],
                  "feedback" : [[0, 0], [0, 0], [0, 0]]
                  }
 
-# returns adsr envelope 
+# returns adsr envelope of size np.size(T).
+# if a + d + s_len + r longer than seconds, end of envelope is cut off
 def envelope(a, d, s_len, s_level, r):
     a_end = np.ceil(a*fs)
     a_int = np.linspace(0, 1, int(a_end))
@@ -39,7 +40,12 @@ def envelope(a, d, s_len, s_level, r):
     r_end = np.ceil(r*fs)
     r_int = s_level*np.linspace(1, 0, int(r_end))
     adsr = np.concatenate((a_int, d_int, s_int, r_int))
-    return np.concatenate((adsr, np.zeros(np.size(T)-np.size(adsr))))
+    if a + d + s_len + r > seconds:
+        env = np.resize(adsr, np.size(T))
+    else:
+        env = np.concatenate((adsr, np.zeros(np.size(T)-np.size(adsr))))
+    return env 
+
 
     
 #  mod freq 
