@@ -78,8 +78,7 @@ class Operator:
 
         # change so feedback mod is different to external input mod
     def set_out(self):
-        if self.mod is []:
-            raise Exception("modulating signal not set")
+        assert self.mod is not [], "modulating signal not set"
         # this is actually phase modulation
         for i in range(0,self.fb):
             self.mod = np.multiply(self.env,
@@ -94,9 +93,7 @@ class Carrier(Operator):
         super().__init__(freq, mod_idx, env, fb)
 
     def get_out(self):
-        if self.out is []:
-            raise Exception("carrier output not defined")
-
+        assert self.out is not [], "carrier output not set"
         return self.out
 
 # modulator output always goes to another operator
@@ -110,8 +107,8 @@ class Modulator(Operator):
         self.next_op = next_op
         
     def set_next_mod(self):
-        if self.out is [] or self.next_op is []:
-            raise Exception("modulator output not set or next operator not set")
+        assert self.out is not [], "modulator output not set"
+        assert self.next_op is not [], "next operator not set"
         (self.next_op).set_mod(self.out)
 
 """ The Synth class provides the interface between the gui and patch data and synth outputs. 
