@@ -19,7 +19,7 @@ pip3 install soundfile numpy matplotlib
 ## Usage
 To start the programme, navigate to the pythonfm directory and run
 ```bash
-python3 ./fm.py
+python3 ./gui.py
 ```
 You will be given the choice between creating a new patch, or opening an existing patch from a file:
 ![screenshot1](https://github.com/user-attachments/assets/c0223d25-7e8e-4f68-abac-cc5fdeb66398)
