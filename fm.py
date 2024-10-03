@@ -1,22 +1,19 @@
-import numpy as np
+""" This module contains the implementation of the FM synthesizer,
+and methods to create, change, save, and open patches.
+"""
 import math
-import matplotlib.pyplot as plt
-
-import soundfile as sf
 import json
 import os
-import sys
 
-import pdb
-import traceback
+import numpy as np
+import matplotlib.pyplot as plt
+import soundfile as sf
 
-# gui.py
-import gui
 
-fs = 44100 # sample rate
-seconds = 1
-T = np.linspace(0, seconds, math.ceil(fs*seconds))
-note = 440 # tuning frequency
+FS = 44100 # sample rate
+SECONDS = 1
+T = np.linspace(0, SECONDS, math.ceil(FS*SECONDS))
+NOTE = 440 # tuning frequency
 
 # this makes a sound vaguely similar to dx7 epiano
 default_patch = {"freqs" : [[14, 1], [1, 1], [1, 1]],
@@ -28,57 +25,72 @@ default_patch = {"freqs" : [[14, 1], [1, 1], [1, 1]],
                  "feedback" : [[0, 0], [0, 0], [0, 0]]
                  }
 
-# returns adsr envelope of size np.size(T).
-# if a + d + s_len + r longer than seconds, end of envelope is cut off
+
 def envelope(a, d, s_len, s_level, r):
-    a_end = np.ceil(a*fs)
+    """ Returns adsr envelope.
+
+    Args:
+        a: attack length in seconds
+        d: decay length in seconds
+        s_len: sustain length in seconds
+        s_level: sustain level, between 0 and 1
+        r: release length in seconds
+
+    Returns:
+        An adsr envelope as an np.array of size np.size(T)
+    """
+    a_end = np.ceil(a*FS)
     a_int = np.linspace(0, 1, int(a_end))
-    d_end = np.ceil(d*fs)
+    d_end = np.ceil(d*FS)
     d_int = 1 - np.linspace(0, 1-s_level, int(d_end))
-    s_end = np.ceil(s_len*fs)
+    s_end = np.ceil(s_len*FS)
     s_int = s_level*np.ones(int(s_end))
-    r_end = np.ceil(r*fs)
+    r_end = np.ceil(r*FS)
     r_int = s_level*np.linspace(1, 0, int(r_end))
     adsr = np.concatenate((a_int, d_int, s_int, r_int))
-    if a + d + s_len + r > seconds:
+    if a + d + s_len + r > SECONDS:
         env = np.resize(adsr, np.size(T))
     else:
         env = np.concatenate((adsr, np.zeros(np.size(T)-np.size(adsr))))
-    return env 
+    return env
 
-
-    
-#  mod freq 
-#   |   |
-#   V   V
-#    OSC
-#     |
-#     V
-#    VCO <--- env
-#     |
-#     V
-#    out
 class Operator:
+    """ This class used to represent an FM synth operator.
 
-    # freq: base frequency for sine oscillator
-    # mod: modulating wave
-    # env: adsr envelope or scalar between 0-1
-    # fb: no. of times to apply feedback
-    # out: wave resulting from fm and envelope
+    Attributes:
+        freq: Frequency of the operator's sine oscillator.
+        mod_idx: The modulation index to be used in the FM computation.
+        env: An envelope which is applied to the operator's output.
+        fb: Number of times for operator to feed output to itself and compute
+          output again.
+        mod: The wave to modulate the frequency of the operator's oscillator.
+        out: The output of the operator after FM synthesis and envelope applied.
+    """
     def __init__(self, freq, mod_idx, env, fb, mod):
-        self.freq = freq*note
+        """Initialises the Operator object.
+
+        Args:
+            freq: A multiple of the base frequency NOTE.
+            mod_idx: Modulation index.
+            env: Envelope.
+            fb: Feedback.
+            mod: Modulating wave.
+            out: Operator output.
+        """
+        self.freq = freq*NOTE
         self.mod_idx = mod_idx
         self.env =  env if not isinstance(env, list) else envelope(*env)
         self.fb = fb
         self.mod = mod
         self.update_out() # sets self.out
 
-    def set_mod(self, mod):
-        self.mod = mod
-
-        # change so feedback mod is different to external input mod
     def update_out(self):
-        assert self.mod is not [], "modulating signal not set"
+        """ Sets the operator's 'out' attribute to the result of FM,
+        which is computed from all its other attributes. 
+
+        If feedback = n, makes the computation n times,
+        each time plugging output back into itself.
+        """
         # this is actually phase modulation
         for i in range(0,self.fb):
             self.mod = np.multiply(self.env,
@@ -86,23 +98,29 @@ class Operator:
         self.out = np.multiply(self.env,
                                np.sin(2*np.pi*self.freq*T + self.mod_idx*self.mod))
 
-""" The Synth class provides the interface between the gui and patch data and synth outputs. 
 
- synth patch data is structured in a specific way so it can only be modified
-using Synth object methods. this ensures that the patch files saved are always valid,
-and synth output is always current after patch has been changed in some way.
-"""
 class Synth:
+    """ The Synth class is responsible for computing the result of fm synthesis
+    from patch data, updating and saving patch data, and giving information to
+    the user interface such as output plot parameters.
 
+    Attributes:
+        patch: A dictionary containing the parameters for each operator,
+          and the output envelope.
+        chains: A list which can contain single operators, and operator chains,
+          which are lists of operators whose outputs are "chained" together.
+        chain_outputs: A list of the output of each operator chain.
+        output_envelope: The envelope to be applied to the output.
+        output: The normalised pointwise sum of the chain outputs,
+          before the output envelope has been applied.
+        output_with_envelope: Output after envelope applied.
+    """
     def __init__(self, patch):
-
         self.patch = patch
         self._apply_patch()
         self._update_output_envelope()
         self.output_with_envelope = np.multiply(self.output_envelope, self.output)
-        self.n_ops = sum(self.patch["algorithm"])
-        self.n_chains = len(self.chain_outputs)
-        
+
     def _apply_patch(self):
         chain_outputs = []
         chains = []
@@ -128,16 +146,25 @@ class Synth:
     def _update_outputs(self):
         self._apply_patch()
         self.output_with_envelope = np.multiply(self.output_envelope, self.output)
-        
+
     def _update_output_envelope(self):
-        self.output_envelope = envelope(*self.patch["output_env"]) if isinstance(self.patch["output_env"], list) else self.patch["output_env"]
+        if isinstance(self.patch["output_env"], list):
+            self.output_envelope = envelope(*self.patch["output_env"])
+        else:
+            self.output_envelope = self.patch["output_env"]
         self.output_with_envelope = np.multiply(self.output_envelope, self.output)
-        
-    """ return patch parameter values as an "unpacked" list
-    if patch["freqs"] = [1, [1, 1], [1, 1, 1]] then get_patch_param("freqs") returns [1,1,1,1,1,1].
-    this is used for initialising parameter entries in gui.
-    """
+
     def get_patch_param(self, param_name):
+        """ Gets the parameter in the patch specified by param_name as an "un-nested" list.
+
+        Args:
+            param_name: The name of the patch parameter.
+
+        Returns:
+          An un-nested list of the patch parameter,
+          e.g., if we have patch["freqs"] = [[1, 14], [1, 1], [1, 1]],
+          then get_patch_param("freqs") returns [1, 14, 1, 1, 1, 1].
+        """
         vals = self.patch[param_name]
         new_vals = []
         for i in vals:
@@ -148,75 +175,150 @@ class Synth:
                 new_vals.append(i)
         return new_vals
 
-    """ returns parameters for envelope function.
-    by default, parameters for output envelope
-    if op parameter is specified, returns envelope parameters for that operator.
-
-    e.g. patch["envs"] = [1, 1, [0.1, 0.1, 0.1, 0.1, 0.1], 1]
-    get_envelope_patch_param(op=3) = [0.1, 0.1, 0.1, 0.1, 0.1]
-    get_envelope_patch_param(op=1) = 1
-    """
     def get_envelope_patch_param(self, op=0):
+        """ Gets the envelope parameter in the patch for the
+            specified operator, or the output envelope by default.
+
+        Args:
+            op: The operator number, an integer between 1-sum(patch["algorithm"]).
+
+        Returns:
+            The envelope parameter for the operator if op is specified,
+            else the output envelope parameter. The envelope parameter is
+            in the form [a, d, s_len, s_level, r] for the envelope function.
+        """
         if op == 0:
             return self.patch["output_env"]
         else:
             return self.patch["envs"][op-1]
-    
+
     def has_envelope(self, op=0):
+        """ Returns whether the specified operator has an envelope,
+        or the output envelope by default.
+
+        Args:
+            op: the operator number, an integer between 1-sum(patch["algorithm"]).
+
+        Returns:
+            A boolean which is True if the operator/output envelope has an envelope,
+            or False if not.
+        """
         if op == 0:
             return isinstance(self.patch["output_env"], list)
         else:
             return isinstance(self.patch["envs"][op-1], list)
-        
+
     # input: list of numbers as strings e.g. ["1", "2", "3"]
     # for freqs, mod_indices, feedback, output_env
     def set_patch_param(self, vals, param_name):
+        """ Takes a list of parameter values, reformats the list
+        for the patch, and sets the patch parameter to the new values.
+
+        Args:
+            vals: The new parameter values for the patch parameter param_name.
+              The length of the list must be the same as the number of operators.
+            param_name: The name of the patch parameter for vals to be set to.
+        """
         vals = strlist_to_nums(vals, param_name)
         if param_name == "output_env":
             self.patch["output_env"] = vals
             self._update_output_envelope()
         else:
-            vals = reshape_list(vals, self.patch["algorithm"])
-            self.patch[param_name] = vals
+            chains_to_update = [False]*len(self.patch["algorithm"])
+            chain_vals = reshape_list(vals, self.patch["algorithm"])
+            for i, chain_val in enumerate(chain_vals):
+                chains_to_update[i] = chain_val == self.patch[param_name][i]
+            self.patch[param_name] = chain_vals
             self._update_outputs()
 
     def play_sound(self):
-        sf.write("temp.wav", self.output_with_envelope, fs)
+        """ Plays the sound of the synth output. """
+        sf.write("temp.wav", self.output_with_envelope, FS)
         os.system(f'aplay ./temp.wav')
 
-    # default output env, op=op number
     def get_envelope_plot_params(self):
-        return T, self.output_envelope if isinstance(self.patch["output_env"], list) else self.output_envelope*np.ones(np.size(T))
+        """ Gets x and y values for the envelope plot.
+        If an envelope is set, returns the envelope as an np.array,
+        otherwise an np.array of ones.
+        """
+        if isinstance(self.patch["output_env"], list):
+            return T, self.output_envelope
+        else:
+            return T, self.output_envelope*np.ones(np.size(T))
 
-    # default output without env, ch=chain number
-    def get_spectrum_plot_params(self):
-        pass
 
     # sketchy
     def get_output_plot_params(self, output_num=0):
+        """ Gets x and y parameters for a plot of the output without envelope
+        for the first 0.01 seconds, or the output of a chain if specified.
+
+        Args:
+            output_num: Which chain output to get the plot parameters for,
+              or the output without envelope if 0.
+
+        Returns:
+            The x and y parameters for a plot for the first 0.01 seconds.
+        """
         output_list = [self.output]
         output_list = output_list + self.chain_outputs
         return T[0:441], output_list[output_num][0:441]
 
     def save_patch(self, patch_name):
+        """ Saves the Synth object's patch attribute in a .json file.
+
+        Args:
+            patch_name: The name of the patch, which must be a string.
+        """
         with open(patch_name, 'w') as f:
             data = json.dump(self.patch, f)
         print("patch saved in " + patch_name)
-    
+
 # these will be used if non-sine fm is implemented
 def makesine(freq):
-    T = np.linspace(0, dur, math.ceil(fs*seconds))
+    """ Returns a sine wave of frequency freq and duration SECONDS.
+
+    Args:
+        freq: Frequency.
+
+    Returns:
+        A sine wave of frequency freq and duration SECONDS.
+    """
+    T = np.linspace(0, SECONDS, math.ceil(FS*SECONDS))
     return np.sin(2*np.pi * freq * T)
 
 def makesaw(freq):
-    T = np.linspace(0, dur, math.ceil(fs*seconds))
+    """ Returns a saw wave of frequency freq and duration SECONDS.
+
+    Args:
+        freq: Frequency.
+
+    Returns:
+        A saw wave of frequency freq and duration SECONDS.
+    """
+    T = np.linspace(0, SECONDS, math.ceil(FS*SECONDS))
     return 2*freq*(T % (1/freq)) - 1
 
 def makesquare(freq):
+    """ Returns a square wave of frequency freq and duration SECONDS.
+
+    Args:
+        freq: Frequency.
+
+    Returns:
+        A square wave of frequency freq and duration SECONDS.
+    """
     return np.sign(makesine(freq))
 
-# return normalised pointwise sum of list of waves for additive synthesis
 def addsyn(waves):
+    """ Returns the normalised pointwise sum of a list of waves for
+    additive synthesis.
+
+    Args:
+        waves: A list of np.array objects of the same shape.
+
+    Returns:
+        The normalised pointwise sum of the waves in waves.
+    """
     out = np.sum(waves, 0)
     out = out/np.max(out)
     return out
@@ -224,25 +326,24 @@ def addsyn(waves):
 
 # -- PATCH METHODS --
 
-# to add: error checking
 def read_patch(patch_filename):
+    """ Reads a patch from a .json file.
+
+    Args:
+        patch_filename: The name of the patch file (including .json).
+
+    Returns:
+        The patch read from the file with the name patch_filename in the
+          current directory.
+    """
     with open(patch_filename) as f:
         patch = json.load(f)
-
     print(patch)
     return patch
 
-def make_patch(freqs, mod_indices, envs, output_env, mod_0, algorithm, feedback):
-        patch = {"freqs" : freqs,
-             "mod_indices" : mod_indices,
-             "envs" : envs,
-             "output_env" : output_env,
-             "mod_0" : mod_0,
-             "algorithm" : algorithm,
-             "feedback" : feedback}
-        return patch
-        
-""" given an algorithm, initialises and returns a new patch
+
+def new_patch_algorithm(algorithm):
+    """ given an algorithm, initialises and returns a new patch with default values.
 
  e.g. given algorithm: [1, 2, 3],
       returns patch: {"freqs" : [1, [1, 1], [1, 1, 1]],
@@ -250,9 +351,15 @@ def make_patch(freqs, mod_indices, envs, output_env, mod_0, algorithm, feedback)
                       "output_env" : 1
                       "mod_0" : [0, 0, 0],
                       "algorithm" : [1, 2, 3],
-                      "feedback" : [0, [0, 0], [0, 0, 0]]}
+                      "feedback" : [0, [0, 0], [0, 0, 0]]
+                     }
+    Args:
+        algorithm: The "shape" of the patch.
+
+    Returns:
+        A new patch with default parameters that are the shape
+        specified by algorithm.
 """
-def new_patch_algorithm(algorithm):
     n_ops = int(np.sum(algorithm))
     freqs = reshape_list([1]*n_ops, algorithm)
     mod_indices = freqs
@@ -260,8 +367,14 @@ def new_patch_algorithm(algorithm):
     feedback = reshape_list([0]*n_ops, algorithm)
     output_env = 1
     mod_0 = [0]*len(algorithm)
-    patch = make_patch(freqs, mod_indices, envs, output_env,
-                       mod_0, algorithm, feedback)
+    patch = {"freqs" : freqs,
+             "mod_indices" : mod_indices,
+             "envs" : envs,
+             "output_env" : output_env,
+             "mod_0" : mod_0,
+             "algorithm" : algorithm,
+             "feedback" : feedback
+             }
     return patch
 
 
@@ -300,10 +413,10 @@ def get_envelope_plot_params(env_params):
         return T[np.nonzero(env)], env[np.nonzero(env)]
     else:
         return T, env_params[0]*np.ones(np.size(T))
-    
+
 def get_spectrum_plot_params(wave):
     N = 2048
-    return 
+    return
 
 
 
@@ -336,22 +449,7 @@ def strlist_to_nums(strlist, param):
                   "mod_0" : float,
                   "algorithm" : int,
                   "feedback" : int}
-    return [param_type[param](a) for a in strlist] if isinstance(strlist, list) else param_type[param](strlist)
-
-def main():
-    # read file without having to go through the gui file dialogue
-    if len(sys.argv) > 1:
-        patch_to_read = sys.argv[1]
-        try:
-            patch = read_patch(patch_to_read)
-            synth = Synth(patch)
-        except OSError:
-            print("cannot open ", patch_to_read)
+    if isinstance(strlist, list):
+        return [param_type[param](a) for a in strlist]
     else:
-        synth = None
-    win = gui.MainWindow(synth)
-    gui.start_gui(win)
-        
-        
-if __name__ == '__main__':
-    main()
+        return param_type[param](strlist)
