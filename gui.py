@@ -1,3 +1,7 @@
+""" This module contains the main method and the Gtk frontend for the
+FM synthesizer.
+"""
+
 import gi
 from matplotlib.backends.backend_gtk3agg import \
     FigureCanvasGTK3Agg as FigureCanvas # for figures in gtk window

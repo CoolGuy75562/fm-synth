@@ -6,7 +6,6 @@ import json
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 import soundfile as sf
 
 
@@ -92,7 +91,7 @@ class Operator:
         each time plugging output back into itself.
         """
         # this is actually phase modulation
-        for i in range(0,self.fb):
+        for _ in range(0,self.fb):
             self.mod = np.multiply(self.env,
                                    np.sin(2*np.pi*self.freq*T + self.mod_idx*self.mod))
         self.out = np.multiply(self.env,
@@ -189,8 +188,7 @@ class Synth:
         """
         if op == 0:
             return self.patch["output_env"]
-        else:
-            return self.patch["envs"][op-1]
+        return self.patch["envs"][op-1]
 
     def has_envelope(self, op=0):
         """ Returns whether the specified operator has an envelope,
@@ -205,8 +203,7 @@ class Synth:
         """
         if op == 0:
             return isinstance(self.patch["output_env"], list)
-        else:
-            return isinstance(self.patch["envs"][op-1], list)
+        return isinstance(self.patch["envs"][op-1], list)
 
     # input: list of numbers as strings e.g. ["1", "2", "3"]
     # for freqs, mod_indices, feedback, output_env
@@ -243,8 +240,7 @@ class Synth:
         """
         if isinstance(self.patch["output_env"], list):
             return T, self.output_envelope
-        else:
-            return T, self.output_envelope*np.ones(np.size(T))
+        return T, self.output_envelope*np.ones(np.size(T))
 
 
     # sketchy
@@ -269,9 +265,9 @@ class Synth:
         Args:
             patch_name: The name of the patch, which must be a string.
         """
-        with open(patch_name, 'w') as f:
-            data = json.dump(self.patch, f)
-        print("patch saved in " + patch_name)
+        with open(patch_name, 'w', encoding="utf-8") as f:
+            json.dump(self.patch, f)
+        print("patch saved in ", patch_name)
 
 # these will be used if non-sine fm is implemented
 def makesine(freq):
@@ -283,7 +279,6 @@ def makesine(freq):
     Returns:
         A sine wave of frequency freq and duration SECONDS.
     """
-    T = np.linspace(0, SECONDS, math.ceil(FS*SECONDS))
     return np.sin(2*np.pi * freq * T)
 
 def makesaw(freq):
@@ -295,7 +290,6 @@ def makesaw(freq):
     Returns:
         A saw wave of frequency freq and duration SECONDS.
     """
-    T = np.linspace(0, SECONDS, math.ceil(FS*SECONDS))
     return 2*freq*(T % (1/freq)) - 1
 
 def makesquare(freq):
@@ -336,7 +330,7 @@ def read_patch(patch_filename):
         The patch read from the file with the name patch_filename in the
           current directory.
     """
-    with open(patch_filename) as f:
+    with open(patch_filename, encoding="utf-8") as f:
         patch = json.load(f)
     print(patch)
     return patch
@@ -377,13 +371,21 @@ def new_patch_algorithm(algorithm):
              }
     return patch
 
-
-
-""" returns output of carrier from "chain" of operators, e.g.
- M -> M -> M -> C
-is a chain of four operators
-"""
 def op_chain(freqs, mod_indices, envs, mod_0, feedbacks):
+    """ Initialises and computes the output of a chain of operators.
+
+    Args:
+        freqs: A list of frequencies, one per operator in the chain.
+        mod_indices: A list of modulation indices, one per operator in the chain.
+        envs: A list of envelopes, one per operator in the chain.
+        feedbacks: A list of feedback parameters, one per operator in the chain.
+        mod_0: The modulating wave for the first operator in the chain.
+          In current configuration should always be 0.
+
+    Returns:
+        getattr(curr_op, 'out'): The output of the final operator in the chain.
+        chain: A list of the operators in the chain, ordered from first to last.
+    """
     chain = []
     curr_op = Operator(freqs[0], mod_indices[0], envs[0], feedbacks[0], mod_0)
     chain.append(curr_op)
@@ -396,52 +398,50 @@ def op_chain(freqs, mod_indices, envs, mod_0, feedbacks):
         curr_op = next_op
     return getattr(curr_op, 'out'), chain
 
-# for testing
-def plot_results(output, outputs, int_end):
-    n_outputs = len(outputs)
-    fig, ax = plt.subplots(n_outputs+1)
-    fig.suptitle("Carrier outputs and final output")
-    for i in range(0, n_outputs):
-        ax[i].plot(T[0:int_end], outputs[i][0:int_end])
-    ax[n_outputs].plot(T[0:int_end], output[0:int_end])
-    plt.show()
-
-# -- GUI METHODS --
-def get_envelope_plot_params(env_params):
-    if len(env_params) > 1:
-        env = envelope(*env_params)
-        return T[np.nonzero(env)], env[np.nonzero(env)]
-    else:
-        return T, env_params[0]*np.ones(np.size(T))
-
-def get_spectrum_plot_params(wave):
-    N = 2048
-    return
-
-
-
 # -- HELPER METHODS --
+def reshape_list(vals, algorithm):
+    """ Reshapes a list of parameters for each operator into the correct
+    format for a patch specified by algorithm.
 
-# given an algorithm, reshapes a list for that algorithm
-# shape = [1, 2, 3], vals = [1, 1, 1, 1, 1, 1], returns [1, [1, 1], [1, 1, 1]]
-def reshape_list(vals, shape):
+    E.g., for the algorithm [1, 2, 3] and vals [1, 1, 1, 1, 1, 1],
+    reshape_list(vals, algorithm) returns [1, [1, 1], [1, 1, 1]].
+
+    Args:
+        vals: A list of parameter values for each operator. List must be
+          the same length as the number of operators, i.e. sum(algorithm).
+        algorithm: A list of integers. Each entry specifies an operator chain
+          consisting of that many operators.
+
+    Returns:
+        new_vals: The list vals formatted according to algorithm as above.
+    """
     new_vals = []
     vals_idx = 0
-    for i in shape:
+    for i in algorithm:
         if i == 1:
             new_vals.append(vals[vals_idx])
             vals_idx += 1
         else:
             vals_mbr = []
-            for j in range(0,i):
+            for _ in range(i):
                 vals_mbr.append(vals[vals_idx])
                 vals_idx += 1
             new_vals.append(vals_mbr)
     return new_vals
 
-# this converts a parameter to its appropriate type.
-# confusingly, strlist can be either a list of strings, or a string.
 def strlist_to_nums(strlist, param):
+    """ Converts a list of strings containing numbers to a list of
+    numbers of the appropriate type according to param.
+
+    Args:
+        strlist: A list of strings of numbers, or potentially a string of a number.
+        param: The name of the param in the patch vals are intended to be
+          parameters for.
+
+    Returns:
+        A list of integers or floats according to the correct type for
+        param, or a single integer or float if strlist was a single string.
+    """
     param_type = {"freqs" : float,
                   "mod_indices" : float,
                   "envs" : float,
@@ -451,5 +451,4 @@ def strlist_to_nums(strlist, param):
                   "feedback" : int}
     if isinstance(strlist, list):
         return [param_type[param](a) for a in strlist]
-    else:
-        return param_type[param](strlist)
+    return param_type[param](strlist)
