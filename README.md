@@ -42,9 +42,11 @@ Now that you have created or opened a patch, you are ready to listen to the soun
 An operator takes a modulating signal, frequency, and an envelope as inputs, 
 ![untitled(1)](https://github.com/user-attachments/assets/a953457b-4570-42da-b538-5eb278a7f60e)
 
-and gives the output
+If we have two operators, a modulator and a carrier, the output will be 
 
-![screenshot5](https://github.com/user-attachments/assets/76d08b64-1145-4919-9af4-6bc4c8466256)
+![latex](https://github.com/user-attachments/assets/3cd316f2-44dc-433c-acdc-6b4f06f8af58)
+
+where F_c, F_m, E_c, E_m, and f_c, f_m are the respective outputs, envelopes, and frequencies for the carrier and modulator, and I is the modulation index.
 
 For more information see:
 CHOWNING, J. M. (1977). The Synthesis of Complex Audio Spectra by Means of Frequency Modulation. Computer Music Journal, 1(2), 46–54.
