@@ -56,7 +56,8 @@ class AlgorithmDialog(Gtk.Dialog):
 
 
 class MainWindow(Gtk.Window):
-    """ Gtk window which provides the interface between the user and the Synth object synth, and is also responsible for choosing the synth patch parameter.
+    """ Gtk window which provides the interface between the user and the Synth
+    object synth, and is also responsible for choosing the synth patch parameter.
 
     MainWindow has three main sections that are each placed in a vbox.
     From top to bottom these are:
@@ -86,6 +87,19 @@ class MainWindow(Gtk.Window):
             output_env_switch is in the "off" position.
     """
     def __init__(self):
+        """ First initialises synth patch data, either by reading a
+        patch file, or getting an algorithm parameter from a dialog.
+        Then creates and initialises all the buttons, entries, and
+        plots in the way described in the class docstring.
+
+        The number of inputs and plots on the screen depends on the
+        number of operators, which is determened by the Synth object's
+        algorithm parameter. For instance if algorithm = [2, 2, 2] we will
+        have 2 + 2 + 2 = 6 operator parameter inputs, and len(algorithm) = 3
+        chain output plots. Similarly if algorithm = [1, 2] we will have
+        3 parameter inputs and 2 chain output plots.
+        """
+
         super().__init__(title="pythonfm")
         option_dialog = Gtk.MessageDialog(transient_for=self,
                                           flags=0,
@@ -99,7 +113,7 @@ class MainWindow(Gtk.Window):
         response = option_dialog.run()
         option_dialog.destroy()
         if response == Gtk.ResponseType.YES: # choose patch from file
-            patch = self.read_patch_from_file()
+            patch = self._read_patch_from_file()
         else: # make new patch by specifying algorithm
             dialog  = AlgorithmDialog() # get input from dialog window to set algorithm
             response = dialog.run()
@@ -123,9 +137,9 @@ class MainWindow(Gtk.Window):
         update_feedback_button = self._init_main_button("update feedback")
 
         # initialise parameter input spinbuttons
-        self.fq_entries = self.init_entry_row("freqs")
-        self.mi_entries = self.init_entry_row("mod_indices")
-        self.fb_entries = self.init_entry_row("feedback")
+        self.fq_entries = self._init_entry_row("freqs")
+        self.mi_entries = self._init_entry_row("mod_indices")
+        self.fb_entries = self._init_entry_row("feedback")
 
         # lay everything out in a grid
         grid = Gtk.Grid()
@@ -176,7 +190,7 @@ class MainWindow(Gtk.Window):
         self.update_output_env_button.connect("clicked", self.on_update_output_env_button_clicked)
 
         # initialise output envelope parameter entries
-        self.output_env_entries = self.init_envelope_entry_row(has_output_env)
+        self.output_env_entries = self._init_envelope_entry_row(has_output_env)
         if not has_output_env: # hide entries and update button if no envelope
             self.to_hide.append(self.update_output_env_button)
             self.to_hide = self.to_hide + self.env_headers
@@ -202,6 +216,26 @@ class MainWindow(Gtk.Window):
         self.add(box)
         self.set_resizable(False)
 
+    def _read_patch_from_file(self):
+        dialog = Gtk.FileChooserDialog(title="choose a file",
+                                       parent=self,
+                                       action=Gtk.FileChooserAction.OPEN
+                                       )
+        dialog.add_buttons(Gtk.STOCK_CANCEL,
+                           Gtk.ResponseType.CANCEL,
+                           Gtk.STOCK_OK,
+                           Gtk.ResponseType.OK
+                           )
+        file_filter = Gtk.FileFilter()
+        file_filter.set_name("json files")
+        file_filter.add_mime_type("application/json")
+        dialog.add_filter(file_filter) # so that file dialog only shows .json files
+        file_response = dialog.run()
+        if file_response == Gtk.ResponseType.OK:
+            patch_filename = dialog.get_filename()
+            dialog.destroy()
+        return fm.read_patch(patch_filename)
+
     def _init_entry_headers(self):
         headers = []
         algorithm = self.synth.get_patch_param("algorithm")
@@ -224,28 +258,8 @@ class MainWindow(Gtk.Window):
         button = Gtk.Button(label=button_name)
         button.connect("clicked", button_dict[button_name])
         return button
-    
-    def read_patch_from_file(self):
-        dialog = Gtk.FileChooserDialog(title="choose a file",
-                                       parent=self,
-                                       action=Gtk.FileChooserAction.OPEN
-                                       )
-        dialog.add_buttons(Gtk.STOCK_CANCEL,
-                           Gtk.ResponseType.CANCEL,
-                           Gtk.STOCK_OK,
-                           Gtk.ResponseType.OK
-                           )
-        file_filter = Gtk.FileFilter()
-        file_filter.set_name("json files")
-        file_filter.add_mime_type("application/json")
-        dialog.add_filter(file_filter) # so that file dialog only shows .json files
-        file_response = dialog.run()
-        if file_response == Gtk.ResponseType.OK:
-            patch_filename = dialog.get_filename()
-            dialog.destroy()
-        return fm.read_patch(patch_filename)
 
-    def init_entry_row(self, param_name):
+    def _init_entry_row(self, param_name):
         # Gtk.Adjustment parameters in first entry, digits in second entry
         sb_settings = {"freqs" : ([0, 0, 100, 1, 5, 0], 5),
                        "mod_indices" : ([0, 0, 100, 0.1, 1, 0], 5),
@@ -264,7 +278,7 @@ class MainWindow(Gtk.Window):
         return entries
 
     # same as init_entry_row but for envelope parameters
-    def init_envelope_entry_row(self, has_env, op=0):
+    def _init_envelope_entry_row(self, has_env, op=0):
         env_params = self.synth.get_envelope_patch_param(op)
         entries = []
         initial_vals = env_params if has_env else fm.default_patch["output_env"]
@@ -283,11 +297,22 @@ class MainWindow(Gtk.Window):
             entries.append(entry)
         return entries
 
-    # play sound
     def on_play_button_clicked(self, widget):
+        """ Plays the sound of the synth's output.
+
+        Args:
+            widget: Used for Gtk.Button.connect.
+        """
         self.synth.play_sound()
 
     def on_save_button_clicked(self, widget):
+        """ Runs a dialog for the user to name and select
+        the location to save the current patch parameters
+        in self.synth as a .json file. Then saves the file.
+
+        Args:
+            widget: Used for Gtk.Button.connect.
+        """
         dialog = Gtk.FileChooserDialog(title="save patch file as",
                                        parent=self,
                                        action=Gtk.FileChooserAction.SAVE
@@ -305,26 +330,62 @@ class MainWindow(Gtk.Window):
             self.synth.save_patch(patch_filename)
 
     def on_update_freqs_button_clicked(self, widget):
+        """ Gives the values in the freq parameter entry row to synth to update,
+        And updates the plot to the new synth output.
+
+        Args:
+            widget: Used for Gtk.Button.connect.
+        """
         freqs = [fq.get_value() for fq in self.fq_entries]
         self.synth.set_patch_param(freqs, "freqs")
         self.update_plot()
 
     def on_update_mod_indices_button_clicked(self, widget):
+        """ Gives the values in the mod_indices parameter entry row to synth to update,
+        And updates the plot to the new synth output.
+
+        Args:
+            widget: Used for Gtk.Button.connect.
+        """
         mod_indices = [mi.get_value() for mi in self.mi_entries]
         self.synth.set_patch_param(mod_indices, "mod_indices")
         self.update_plot()
 
     def on_update_feedback_button_clicked(self, widget):
+        """ Gives the values in the feedback parameter entry row to synth to update,
+        And updates the plot to the new synth output.
+
+        Args:
+            widget: Used for Gtk.Button.connect.
+        """
         feedback = [fb.get_value_as_int() for fb in self.fb_entries]
         self.synth.set_patch_param(feedback, "feedback")
         self.update_plot()
 
     def on_update_output_env_button_clicked(self, widget):
+        """ Gives the values in the output_env parameter entry row to synth to update,
+        And updates the plot to the new synth output.
+
+        Args:
+            widget: Used for Gtk.Button.connect.
+        """
         output_env = [oe.get_value() for oe in self.output_env_entries]
         self.synth.set_patch_param(output_env, "output_env")
         self.update_plot()
 
     def on_output_env_switch_activated(self, switch, gparam):
+        """ Shows envelope entries, update envelope button, and header
+        if switch is turned on. Hides envelope entries, update envelope button,
+        and headers if switch is turned off, and updates synth to not use
+        an output envelope.
+
+        Note that turning the switch on does not update the synth's output
+        envelope. You have to press the update output envelope button.
+
+        Args:
+            switch: The switch object.
+            gparam: Not sure.
+        """
         if switch.get_active() is True:
             # shows entries, button, and header, but does not apply envelope
             self.update_output_env_button.show()
@@ -340,9 +401,8 @@ class MainWindow(Gtk.Window):
                 entry.hide()
                 header.hide()
 
-    # updates all the plots to current information in synth object.
-    # this should be split into seperate functions for envelopes and outputs
     def update_plot(self):
+        """ Updates the plots in self.fig to current patch data in self.synth. """
         small = 10
 
         self.fig.clear()
@@ -380,6 +440,7 @@ class MainWindow(Gtk.Window):
         self.canvas.draw_idle()
 
 def main():
+    """ Sets up the main window, then begins Gtk.main() loop. """
     win = MainWindow()
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
