@@ -1,24 +1,30 @@
 """ This module contains the main method and the Gtk frontend for the
 FM synthesizer.
 """
-
 import gi
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk
+
 from matplotlib.backends.backend_gtk3agg import \
     FigureCanvasGTK3Agg as FigureCanvas # for figures in gtk window
 from matplotlib.figure import Figure
+
 import fm # ./fm.py
-
-gi.require_version("Gtk", "3.0")
-
-from gi.repository import Gtk
 
 settings = Gtk.Settings.get_default()
 settings.set_property("gtk-theme-name", "Numix")
 settings.set_property("gtk-application-prefer-dark-theme", False)
 
 class AlgorithmDialog(Gtk.Dialog):
+    """ Gtk dialog for user to enter number of operators per chain.
 
+    Attributes:
+        chain_entries: A list of the dialog's spinbuttons for input.
+    """
     def __init__(self):
+        """ Creates and initialises "OK" button and spinbuttons,
+        and lays them out on a grid.
+        """
         super().__init__(title="set algorithm")
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
@@ -41,38 +47,46 @@ class AlgorithmDialog(Gtk.Dialog):
         box.add(grid)
         self.show_all()
 
-        # this seems like a convoluted way of doing it
-    def run(self):
-        result = super(AlgorithmDialog, self).run()
-        if result == Gtk.ResponseType.OK:
-             algorithm = []
-             for entry in self.chain_entries:
-                 val = entry.get_value_as_int()
-                 if val != 0:
-                     algorithm.append(val)
-             return algorithm
+    def get_algorithm(self):
+        """ Returns a list of the nonzero values of the entries. """
+        entry_vals = [entry.get_value_as_int()
+                      for entry in self.chain_entries]
+        return [val for val in entry_vals if val != 0]
+
+
 
 class MainWindow(Gtk.Window):
-    """ Gtk window which provides the interface between the user and the Synth object synth.
+    """ Gtk window which provides the interface between the user and the Synth object synth, and is also responsible for choosing the synth patch parameter.
 
-    For each synth patch parameter the window has a row of text entry boxes into which the user can type new values for the parameter,
-    and an update button which tells the Synth object to update its parameters to the new values in the text entry row.
+    MainWindow has three main sections that are each placed in a vbox.
+    From top to bottom these are:
+       - A Gtk.Grid which contains inputs for the freqs, mod_indices, and feedback
+         parameters, as well as a "play" button and a "save" button.
+       - A FigureCanvas which contains plots of the outputs of each chain,
+         the synth output without the output envelope, and the output envelope.
+       - A Gtk.Grid which contains a toggle switch, which when turned on
+         has inputs for output envelope parameters.
 
-    The window has a play button which plays the sound of the synth output.
-
-    The window shows respective plots for the outputs of each synth chain, the added output, and the output envelope.
-    The relevant plots are updated when the outputs of the synth are updated.
-
-Everything to do with the synth itself is done in the synth object.
-    E.g. MainWindow gives freqs to update to synth and synth updates the output. To plot the output one calls synth.get_output_plot_params().
+    Attributes:
+        synth: An fm.Synth object which contains patch information and is
+            responsible for computing the synth output, etc.
+        to_hide: A list of widgets that will be hidden
+            when the window first appears.
+        fq_entries: A list of spinbuttons for entry of freq parameter,
+            one for each operator.
+        mi_entries: Ditto for mod_indices.
+        fb_entries: Ditto for feedback.
+        fig: The figure which all the plots go onto.
+        canvas: The FigureCanvas which fig goes into.
+        env_headers: A list of Gtk.Labels with the respective text
+            "attack", "decay", "sus_length", "sus_level", "release"
+        update_output_env_button: Updates output env in synth to new values. Hidden if
+            output_env_switch is in the "off" position.
+        output_env_entries: Entries for output envelope parameters. Hidden if
+            output_env_switch is in the "off" position.
     """
     def __init__(self):
         super().__init__(title="pythonfm")
-
-
-        """ This dialog gives you the option of opening a (.json) patch file,
-        or creating a new patch which is initialised to some default values by specifying an "algorithm".
-        """
         option_dialog = Gtk.MessageDialog(transient_for=self,
                                           flags=0,
                                           message_type=Gtk.MessageType.QUESTION,
@@ -85,71 +99,28 @@ Everything to do with the synth itself is done in the synth object.
         response = option_dialog.run()
         option_dialog.destroy()
         if response == Gtk.ResponseType.YES: # choose patch from file
-            dialog = Gtk.FileChooserDialog(title="choose a file",
-                                           parent=self,
-                                           action=Gtk.FileChooserAction.OPEN
-                                           )
-            dialog.add_buttons(Gtk.STOCK_CANCEL,
-                               Gtk.ResponseType.CANCEL,
-                               Gtk.STOCK_OK,
-                               Gtk.ResponseType.OK
-                               )
-            filter = Gtk.FileFilter()
-            filter.set_name("json files")
-            filter.add_mime_type("application/json")
-            dialog.add_filter(filter) # so that file dialog only shows .json files
-            file_response = dialog.run()
-            if file_response == Gtk.ResponseType.OK:
-                patch_filename = dialog.get_filename()
-                dialog.destroy()
-            patch = fm.read_patch(patch_filename)
+            patch = self.read_patch_from_file()
         else: # make new patch by specifying algorithm
             dialog  = AlgorithmDialog() # get input from dialog window to set algorithm
-            algorithm = dialog.run() # this is the list of nonzero values in the entries, not the dialog button id
-            dialog.destroy()
+            response = dialog.run()
+            if response == Gtk.ResponseType.OK:
+                algorithm = dialog.get_algorithm()
+                dialog.destroy()
             patch = fm.new_patch_algorithm(algorithm)
         self.synth = fm.Synth(patch)
 
-        self.to_hide = [] # for widgets we don't want to see at start, e.g. output envelope entries if synth has no envelope
+        self.to_hide = [] # for widgets we don't want to see at start
 
         # -- MAIN PATCH PARAMETERS --
-        """ Here we set up the section of the window for setting the main patch parameters: freqs, mod_indices, and feedback.
-
-        The play and save buttons are also here.
-
-        """
-
         # initialise headers
-        self.headers = [] # column headers for operator parameters
-        algorithm = self.synth.get_patch_param("algorithm")
-        op_count = 1
-        for i in algorithm:
-            for j in range(i):
-                header_label = "op" + str(op_count)
-                header = Gtk.Label(label=header_label)
-                self.headers.append(header)
-                op_count += 1
+        headers = self._init_entry_headers()
 
-        # initialise play button
-        self.play_button = Gtk.Button(label="play")
-        self.play_button.connect("clicked", self.on_play_button_clicked)
-
-        # initialise save button
-        self.save_button = Gtk.Button(label="save")
-        self.save_button.connect("clicked", self.on_save_button_clicked)
-
-        # initialise update_freqs button
-        self.update_freqs_button = Gtk.Button(label="update freqs")
-        self.update_freqs_button.connect("clicked", self.on_update_freqs_button_clicked)
-
-        # initialise update_mod_indices button
-        self.update_mod_indices_button = Gtk.Button(label="update mod_indices")
-        self.update_mod_indices_button.connect("clicked",
-                                               self.on_update_mod_indices_button_clicked)
-
-        # initialise update_feedback button
-        self.update_feedback_button = Gtk.Button(label="update feedback")
-        self.update_feedback_button.connect("clicked", self.on_update_feedback_button_clicked)
+        # initialise buttons
+        play_button = self._init_main_button("play")
+        save_button = self._init_main_button("save")
+        update_freqs_button = self._init_main_button("update freqs")
+        update_mod_indices_button = self._init_main_button("update mod_indices")
+        update_feedback_button = self._init_main_button("update feedback")
 
         # initialise parameter input spinbuttons
         self.fq_entries = self.init_entry_row("freqs")
@@ -158,13 +129,13 @@ Everything to do with the synth itself is done in the synth object.
 
         # lay everything out in a grid
         grid = Gtk.Grid()
-        grid.attach(self.play_button, 0, 0, 1, 1)
-        grid.attach(self.save_button, 1, 0, 1, 1)
-        for i, header in enumerate(self.headers):
+        grid.attach(play_button, 0, 0, 1, 1)
+        grid.attach(save_button, 1, 0, 1, 1)
+        for i, header in enumerate(headers):
             grid.attach(header, 2*i+2, 0, 2, 1)
-        grid.attach(self.update_freqs_button, 0, 1, 2, 1)
-        grid.attach(self.update_mod_indices_button, 0, 2, 2, 1)
-        grid.attach(self.update_feedback_button, 0, 3, 2, 1)
+        grid.attach(update_freqs_button, 0, 1, 2, 1)
+        grid.attach(update_mod_indices_button, 0, 2, 2, 1)
+        grid.attach(update_feedback_button, 0, 3, 2, 1)
         for i, (fqe, mie, fbe) in enumerate(zip(self.fq_entries,
                                                 self.mi_entries,
                                                 self.fb_entries
@@ -184,10 +155,6 @@ Everything to do with the synth itself is done in the synth object.
         self.update_plot()
 
         # -- ENVELOPE GRID --
-        """ Here we set up everything for setting the output envelope
-
-        In the future there will be a dropdown list to set envelopes for operators.
-        """
         output_env_grid = Gtk.Grid()
 
         has_output_env = self.synth.has_envelope()
@@ -202,7 +169,7 @@ Everything to do with the synth itself is done in the synth object.
         # initialise toggle switch for output envelope
         output_env_switch = Gtk.Switch()
         output_env_switch.connect("notify::active", self.on_output_env_switch_activated)
-        output_env_switch.set_active(has_output_env) # switch is initially "on" if patch has output envelope
+        output_env_switch.set_active(has_output_env) # on if has output envelope
 
         # initialise update output_env button
         self.update_output_env_button = Gtk.Button(label="update output_env")
@@ -210,7 +177,7 @@ Everything to do with the synth itself is done in the synth object.
 
         # initialise output envelope parameter entries
         self.output_env_entries = self.init_envelope_entry_row(has_output_env)
-        if has_output_env == False: # hide entries and update button if no envelope
+        if not has_output_env: # hide entries and update button if no envelope
             self.to_hide.append(self.update_output_env_button)
             self.to_hide = self.to_hide + self.env_headers
 
@@ -219,7 +186,10 @@ Everything to do with the synth itself is done in the synth object.
         output_env_grid.attach(self.update_output_env_button, 2, 1, 2, 1)
         for i, (env_entry, env_header) in enumerate(zip(self.output_env_entries, self.env_headers)):
             output_env_grid.attach(env_entry, 2*i+4, 1, 2, 1)
-            output_env_grid.attach_next_to(env_header, env_entry,  Gtk.PositionType.TOP, 2, 1) # headers go above the entries
+            output_env_grid.attach_next_to(env_header,
+                                           env_entry,
+                                           Gtk.PositionType.TOP,
+                                           2, 1)
 
         # set up box which the parameter grid, figures, and envelope grid go into
         box = Gtk.Box()
@@ -232,7 +202,49 @@ Everything to do with the synth itself is done in the synth object.
         self.add(box)
         self.set_resizable(False)
 
-    # returns row of entries with text initialised to value of operator parameter in patch corresponding to param_name
+    def _init_entry_headers(self):
+        headers = []
+        algorithm = self.synth.get_patch_param("algorithm")
+        op_count = 1
+        for i in algorithm:
+            for _ in range(i):
+                header_label = "op" + str(op_count)
+                header = Gtk.Label(label=header_label)
+                headers.append(header)
+                op_count += 1
+        return headers
+
+    def _init_main_button(self, button_name):
+        button_dict = {"play" : self.on_play_button_clicked,
+                       "save" : self.on_save_button_clicked,
+                       "update freqs" : self.on_update_freqs_button_clicked,
+                       "update mod_indices" : self.on_update_mod_indices_button_clicked,
+                       "update feedback" : self.on_update_feedback_button_clicked
+                       }
+        button = Gtk.Button(label=button_name)
+        button.connect("clicked", button_dict[button_name])
+        return button
+    
+    def read_patch_from_file(self):
+        dialog = Gtk.FileChooserDialog(title="choose a file",
+                                       parent=self,
+                                       action=Gtk.FileChooserAction.OPEN
+                                       )
+        dialog.add_buttons(Gtk.STOCK_CANCEL,
+                           Gtk.ResponseType.CANCEL,
+                           Gtk.STOCK_OK,
+                           Gtk.ResponseType.OK
+                           )
+        file_filter = Gtk.FileFilter()
+        file_filter.set_name("json files")
+        file_filter.add_mime_type("application/json")
+        dialog.add_filter(file_filter) # so that file dialog only shows .json files
+        file_response = dialog.run()
+        if file_response == Gtk.ResponseType.OK:
+            patch_filename = dialog.get_filename()
+            dialog.destroy()
+        return fm.read_patch(patch_filename)
+
     def init_entry_row(self, param_name):
         # Gtk.Adjustment parameters in first entry, digits in second entry
         sb_settings = {"freqs" : ([0, 0, 100, 1, 5, 0], 5),
@@ -275,7 +287,7 @@ Everything to do with the synth itself is done in the synth object.
     def on_play_button_clicked(self, widget):
         self.synth.play_sound()
 
-    def on_save_button_clicked(self, widged):
+    def on_save_button_clicked(self, widget):
         dialog = Gtk.FileChooserDialog(title="save patch file as",
                                        parent=self,
                                        action=Gtk.FileChooserAction.SAVE
@@ -292,7 +304,6 @@ Everything to do with the synth itself is done in the synth object.
             dialog.destroy()
             self.synth.save_patch(patch_filename)
 
-    # update buttons get parameter values from their row of entries and send to synth object, then everything updated.
     def on_update_freqs_button_clicked(self, widget):
         freqs = [fq.get_value() for fq in self.fq_entries]
         self.synth.set_patch_param(freqs, "freqs")
@@ -314,7 +325,7 @@ Everything to do with the synth itself is done in the synth object.
         self.update_plot()
 
     def on_output_env_switch_activated(self, switch, gparam):
-        if switch.get_active() == True:
+        if switch.get_active() is True:
             # shows entries, button, and header, but does not apply envelope
             self.update_output_env_button.show()
             for entry, header in zip(self.output_env_entries, self.env_headers):
@@ -355,7 +366,6 @@ Everything to do with the synth itself is done in the synth object.
         env_ax.set_yticks((0, 1))
         env_ax.set_title("Output Envelope", fontsize=small)
 
-        chain_axes = []
         for i in range(n_chains):
             chain_ax = self.fig.add_subplot(n_rows, 1, i+1)
             chain_ax_plot_params = self.synth.get_output_plot_params(i+1)
