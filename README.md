@@ -4,10 +4,8 @@ basic fm synth implementation in python
 ## Table of Contents
 - [Installation](#installation)
 - [Usage](#usage)
-- [Contributing](#contributing)
 
 ## Installation
-This has been tested on Debian, but should work for most linux distributions. The programme currently makes use of the Python os library, so it might not work if one is not using linux.
 1. Clone the repository:
 ```bash
 git clone https://github.com/CoolGuy75562/pythonfm.git
@@ -16,6 +14,8 @@ git clone https://github.com/CoolGuy75562/pythonfm.git
 ```bash
 pip3 install soundfile numpy matplotlib
 ```
+If they are not already installed, you will also need PyGObject, Gtk, and their dependencies, which you should be able to find in your distribution's repository.
+
 ## Usage
 To start the programme, navigate to the pythonfm directory and run
 ```bash
@@ -58,8 +58,3 @@ From top to bottom, there is one plot for each operator chain output, a plot of 
 If the switch in the bottom left is in the "off" position, turning it on will reveal adsr envelope parameters. If "update output_env" is then pressed, the envelope will be applied to the output, and the output envelope plot will be updated. 
 
 Turning the switch off will remove the envelope from the output and the output envelope plot will become a line at y=1.
-
-## Contributing
-This is mainly intended as a personal project to learn more about DSP and synthesizers, and to get used to working in Python. It is still a work in progress. Once I have tidied everything up and added some more features I might allow contributions. In the meantime, if you have any feedback or ideas feel free to let me know.
-
-
