@@ -1,5 +1,5 @@
-# pythonfm
-basic fm synth implementation in python
+# fm-synth
+basic fm synth implementation in python with Gtk gui
 
 ## Table of Contents
 - [Installation](#installation)
@@ -17,7 +17,7 @@ pip3 install soundfile numpy matplotlib
 If they are not already installed, you will also need PyGObject, Gtk, and their dependencies, which you should be able to find in your distribution's repository.
 
 ## Usage
-To start the programme, navigate to the pythonfm directory and run
+To start the programme, navigate to the fm-synth directory and run
 ```bash
 python3 ./gui.py
 ```
