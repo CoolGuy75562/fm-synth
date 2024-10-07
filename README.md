@@ -8,7 +8,7 @@ basic fm synth implementation in python with Gtk gui
 ## Installation
 1. Clone the repository:
 ```bash
-git clone https://github.com/CoolGuy75562/pythonfm.git
+git clone https://github.com/CoolGuy75562/fm-synth.git
 ```
 2. Install dependencies:
 ```bash
