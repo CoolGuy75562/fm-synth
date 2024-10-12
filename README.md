@@ -1,23 +1,23 @@
-# pythonfm
-basic fm synth implementation in python
+# fm-synth
+basic fm synth implementation in python with Gtk gui
 
 ## Table of Contents
 - [Installation](#installation)
 - [Usage](#usage)
-- [Contributing](#contributing)
 
 ## Installation
-This has been tested on Debian, but should work for most linux distributions. The programme currently makes use of the Python os library, so it might not work if one is not using linux.
 1. Clone the repository:
 ```bash
-git clone https://github.com/CoolGuy75562/pythonfm.git
+git clone https://github.com/CoolGuy75562/fm-synth.git
 ```
 2. Install dependencies:
 ```bash
 pip3 install soundfile numpy matplotlib
 ```
+If they are not already installed, you will also need PyGObject, Gtk, and their dependencies, which you should be able to find in your distribution's repository.
+
 ## Usage
-To start the programme, navigate to the pythonfm directory and run
+To start the programme, navigate to the fm-synth directory and run
 ```bash
 python3 ./gui.py
 ```
@@ -42,9 +42,11 @@ Now that you have created or opened a patch, you are ready to listen to the soun
 An operator takes a modulating signal, frequency, and an envelope as inputs, 
 ![untitled(1)](https://github.com/user-attachments/assets/a953457b-4570-42da-b538-5eb278a7f60e)
 
-and gives the output
+If we have two operators, a modulator and a carrier, the output will be 
 
-![screenshot5](https://github.com/user-attachments/assets/76d08b64-1145-4919-9af4-6bc4c8466256)
+![latex](https://github.com/user-attachments/assets/3cd316f2-44dc-433c-acdc-6b4f06f8af58)
+
+where F_c, F_m, E_c, E_m, and f_c, f_m are the respective outputs, envelopes, and frequencies for the carrier and modulator, and I is the modulation index.
 
 For more information see:
 CHOWNING, J. M. (1977). The Synthesis of Complex Audio Spectra by Means of Frequency Modulation. Computer Music Journal, 1(2), 46–54.
@@ -56,8 +58,3 @@ From top to bottom, there is one plot for each operator chain output, a plot of 
 If the switch in the bottom left is in the "off" position, turning it on will reveal adsr envelope parameters. If "update output_env" is then pressed, the envelope will be applied to the output, and the output envelope plot will be updated. 
 
 Turning the switch off will remove the envelope from the output and the output envelope plot will become a line at y=1.
-
-## Contributing
-This is mainly intended as a personal project to learn more about DSP and synthesizers, and to get used to working in Python. It is still a work in progress. Once I have tidied everything up and added some more features I might allow contributions. In the meantime, if you have any feedback or ideas feel free to let me know.
-
-
