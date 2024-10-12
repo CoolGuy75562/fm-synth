@@ -27,7 +27,6 @@ default_patch = {"freqs" : [[14, 1], [1, 1], [1, 1]],
 
 def envelope(a, d, s_len, s_level, r):
     """ Returns adsr envelope.
-
     Args:
         a: attack length in seconds
         d: decay length in seconds
@@ -38,14 +37,20 @@ def envelope(a, d, s_len, s_level, r):
     Returns:
         An adsr envelope as an np.array of size np.size(T)
     """
+    if s_level > 1 or s_level < 0:
+        raise ValueError(f"s_level {s_level} is not in the interval [0,1]")
     a_end = np.ceil(a*FS)
     a_int = np.linspace(0, 1, int(a_end))
+    
     d_end = np.ceil(d*FS)
     d_int = 1 - np.linspace(0, 1-s_level, int(d_end))
+    
     s_end = np.ceil(s_len*FS)
     s_int = s_level*np.ones(int(s_end))
+    
     r_end = np.ceil(r*FS)
     r_int = s_level*np.linspace(1, 0, int(r_end))
+    
     adsr = np.concatenate((a_int, d_int, s_int, r_int))
     if a + d + s_len + r > SECONDS:
         env = np.resize(adsr, np.size(T))
@@ -96,7 +101,6 @@ class Operator:
                                    np.sin(2*np.pi*self.freq*T + self.mod_idx*self.mod))
         self.out = np.multiply(self.env,
                                np.sin(2*np.pi*self.freq*T + self.mod_idx*self.mod))
-
 
 class Synth:
     """ The Synth class is responsible for computing the result of fm synthesis
@@ -216,15 +220,11 @@ class Synth:
               The length of the list must be the same as the number of operators.
             param_name: The name of the patch parameter for vals to be set to.
         """
-        vals = strlist_to_nums(vals, param_name)
         if param_name == "output_env":
             self.patch["output_env"] = vals
             self._update_output_envelope()
         else:
-            chains_to_update = [False]*len(self.patch["algorithm"])
             chain_vals = reshape_list(vals, self.patch["algorithm"])
-            for i, chain_val in enumerate(chain_vals):
-                chains_to_update[i] = chain_val == self.patch[param_name][i]
             self.patch[param_name] = chain_vals
             self._update_outputs()
 

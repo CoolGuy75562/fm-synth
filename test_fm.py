@@ -1,6 +1,25 @@
 import unittest
 import fm
+import numpy as np
 
+class TestEnvelope(unittest.TestCase):
+
+    def test_create_envelope(self):
+        a = 0.2
+        d = 0.2
+        s_len = 0.2
+        s_level = 0.5
+        r = 0.1
+        self.assertEqual(np.size(fm.envelope(a,d,s_len,s_level,r)), np.size(fm.T))
+
+        r = 0.3
+        self.assertEqual(np.size(fm.envelope(a,d,s_len,s_level,r)), np.size(fm.T))
+
+        self.assertEqual(np.size(fm.envelope(0,0,0,0,0)), np.size(fm.T))
+
+        self.assertRaises(ValueError, fm.envelope, *[a, d, s_len, -1, r])
+        self.assertRaises(ValueError, fm.envelope, *[a, d, s_len, 2, r])
+        
 class TestPatchMethods(unittest.TestCase):
 
     def test_reshape_list(self):
@@ -16,8 +35,6 @@ class TestPatchMethods(unittest.TestCase):
         # singleton
         self.assertEqual(fm.reshape_list([1], [1]), [1])
 
-        # to add: exceptions/errors
-
     def test_new_patch_algorithm(self):
 
         output_env = 1
@@ -31,8 +48,15 @@ class TestPatchMethods(unittest.TestCase):
         feedback1 = [[0,0], [0,0], [0,0]]
  
         mod_01 = [0, 0, 0]
-        patch1 = fm.make_patch(freqs1, mod_indices1, envs1,
-                               output_env, mod_01, alg1, feedback1)
+        output_env = 1
+        patch1 = {"freqs" : freqs1,
+                  "mod_indices" : mod_indices1,
+                  "envs" : envs1,
+                  "output_env" : output_env,
+                  "mod_0" : mod_01,
+                  "algorithm" : alg1,
+                  "feedback" : feedback1
+             }
         self.assertEqual(fm.new_patch_algorithm(alg1), patch1)
 
         # test for algorithm [1, 2, 3]
@@ -43,8 +67,15 @@ class TestPatchMethods(unittest.TestCase):
         envs2 = freqs2
         feedback2 = [0, [0,0], [0,0,0]]
         mod_02 = [0, 0, 0]
-        patch2 = fm.make_patch(freqs2, mod_indices2, envs2,
-                               output_env, mod_02, alg2, feedback2)
+
+        patch2 = {"freqs" : freqs2,
+                  "mod_indices" : mod_indices2,
+                  "envs" : envs2,
+                  "output_env" : output_env,
+                  "mod_0" : mod_02,
+                  "algorithm" : alg2,
+                  "feedback" : feedback2
+             }
         self.assertEqual(fm.new_patch_algorithm(alg2), patch2)
 
         # test for algorithm [1, 1, 1]
@@ -56,8 +87,14 @@ class TestPatchMethods(unittest.TestCase):
         envs3 = freqs3
         feedback3 = [0, 0, 0]
         mod_03 = [0, 0, 0]
-        patch3 = fm.make_patch(freqs3, mod_indices3, envs3,
-                               output_env, mod_03, alg3, feedback3)
+        patch3 = {"freqs" : freqs3,
+                  "mod_indices" : mod_indices3,
+                  "envs" : envs3,
+                  "output_env" : output_env,
+                  "mod_0" : mod_03,
+                  "algorithm" : alg3,
+                  "feedback" : feedback3
+             }
         self.assertEqual(fm.new_patch_algorithm(alg3), patch3)
 
         # test for algorithm [1]
@@ -69,8 +106,14 @@ class TestPatchMethods(unittest.TestCase):
         envs4 = freqs4
         feedback4 = [0]
         mod_04 = [0]
-        patch4 = fm.make_patch(freqs4, mod_indices4, envs4,
-                               output_env, mod_04, alg4, feedback4)
+        patch4 = {"freqs" : freqs4,
+                  "mod_indices" : mod_indices4,
+                  "envs" : envs4,
+                  "output_env" : output_env,
+                  "mod_0" : mod_04,
+                  "algorithm" : alg4,
+                  "feedback" : feedback4
+             }
         self.assertEqual(fm.new_patch_algorithm(alg4), patch4)
 
         # test for algorithm [2]
@@ -82,8 +125,14 @@ class TestPatchMethods(unittest.TestCase):
         envs5 = freqs5
         feedback5 = [[0,0]]
         mod_05 = [0]
-        patch5 = fm.make_patch(freqs5, mod_indices5, envs5,
-                               output_env, mod_05, alg5, feedback5)
+        patch5 = {"freqs" : freqs5,
+                  "mod_indices" : mod_indices5,
+                  "envs" : envs5,
+                  "output_env" : output_env,
+                  "mod_0" : mod_05,
+                  "algorithm" : alg5,
+                  "feedback" : feedback5
+             }
         self.assertEqual(fm.new_patch_algorithm(alg5), patch5)
 
 class TestSynth(unittest.TestCase):

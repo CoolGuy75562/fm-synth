@@ -1,6 +1,8 @@
 """ This module contains the main method and the Gtk frontend for the
 FM synthesizer.
 """
+import fm # ./fm.py
+
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
@@ -8,8 +10,6 @@ from gi.repository import Gtk
 from matplotlib.backends.backend_gtk3agg import \
     FigureCanvasGTK3Agg as FigureCanvas # for figures in gtk window
 from matplotlib.figure import Figure
-
-import fm # ./fm.py
 
 settings = Gtk.Settings.get_default()
 settings.set_property("gtk-theme-name", "Numix")
@@ -163,10 +163,10 @@ class MainWindow(Gtk.Window):
         # -- FIGURES --
 
         # initialise figures
-        self.fig = Figure(figsize=(5, 5), dpi=100)
+        self.fig = Figure()
         self.canvas = FigureCanvas(self.fig)
         self.canvas.set_size_request(500, 500)
-        self.update_plot()
+        self.init_plots()
 
         # -- ENVELOPE GRID --
         output_env_grid = Gtk.Grid()
@@ -182,13 +182,14 @@ class MainWindow(Gtk.Window):
 
         # initialise toggle switch for output envelope
         output_env_switch = Gtk.Switch()
-        output_env_switch.connect("notify::active", self.on_output_env_switch_activated)
+
         output_env_switch.set_active(has_output_env) # on if has output envelope
 
         # initialise update output_env button
         self.update_output_env_button = Gtk.Button(label="update output_env")
         self.update_output_env_button.connect("clicked", self.on_update_output_env_button_clicked)
-
+        output_env_switch.connect("notify::active", self.on_output_env_switch_activated)
+                
         # initialise output envelope parameter entries
         self.output_env_entries = self._init_envelope_entry_row(has_output_env)
         if not has_output_env: # hide entries and update button if no envelope
@@ -211,7 +212,7 @@ class MainWindow(Gtk.Window):
 
         # from top to bottom:
         box.pack_start(grid, True, True, 0) # parameter grid
-        box.pack_start(self.canvas, False, False, 0) # figures
+        box.pack_start(self.canvas, True, True, 0) # figures
         box.pack_start(output_env_grid, True, True, 0) # output env grid
         self.add(box)
         self.set_resizable(False)
@@ -260,7 +261,32 @@ class MainWindow(Gtk.Window):
         return button
 
     def _init_entry_row(self, param_name):
-        # Gtk.Adjustment parameters in first entry, digits in second entry
+        sb_digits = {"freqs" : 5,
+                     "mod_indices" : 5,
+                     "feedback" : 0
+                     }
+        sb_adjustment = {"freqs" : {"value" : 0,
+                                    "lower" : 0,
+                                    "upper" : 100,
+                                    "step_increment" : 1,
+                                    "page_increment" : 5,
+                                    "page_size" : 0
+                                    },
+                         "mod_indices" : {"value" : 0,
+                                          "lower" : 0,
+                                          "upper" : 100,
+                                          "step_increment" : 0.1,
+                                          "page_increment" : 1,
+                                          "page_size" : 0
+                                          },
+                         "feedback" : {"value" : 0,
+                                       "lower" : 0,
+                                       "upper" : 10,
+                                       "step_increment" : 1,
+                                       "page_increment" : 2,
+                                       "page_size" : 0
+                                       }
+                         }
         sb_settings = {"freqs" : ([0, 0, 100, 1, 5, 0], 5),
                        "mod_indices" : ([0, 0, 100, 0.1, 1, 0], 5),
                        "feedback" : ([0, 0, 10, 1, 2, 0], 0)
@@ -270,9 +296,9 @@ class MainWindow(Gtk.Window):
         n_ops = sum(self.synth.get_patch_param("algorithm"))
         for i in range(n_ops):
             entry = Gtk.SpinButton()
-            adjustment = Gtk.Adjustment(*sb_settings[param_name][0])
+            adjustment = Gtk.Adjustment(**sb_adjustment[param_name])
             entry.set_adjustment(adjustment)
-            entry.set_digits(sb_settings[param_name][1])
+            entry.set_digits(sb_digits[param_name])
             entry.set_value(vals[i])
             entries.append(entry)
         return entries
@@ -402,41 +428,53 @@ class MainWindow(Gtk.Window):
                 header.hide()
 
     def update_plot(self):
+        for i, ax in enumerate(self.output_axes):
+            ax.lines.clear()
+            plot_params = self.synth.get_output_plot_params(i)
+            ax.plot(*plot_params, color='k')
+        env_plot_params = self.synth.get_envelope_plot_params()
+        self.env_ax.lines.clear()
+        self.env_ax.plot(*env_plot_params, color='k')
+        self.canvas.draw_idle()
+        
+    def init_plots(self):
         """ Updates the plots in self.fig to current patch data in self.synth. """
         small = 10
-
-        self.fig.clear()
+        self.fig.clear(keep_observers=True)
         n_chains = len(getattr(self.synth, 'chains'))
         n_rows = n_chains + 2
+
+        self.output_axes = []
         op_ax = self.fig.add_subplot(n_rows, 1, n_rows-1)
         output_plot_params = self.synth.get_output_plot_params()
-        op_ax.plot(*output_plot_params, clip_on=False)
+        op_ax.plot(*output_plot_params, clip_on=False, color='k')
         op_ax.set_xlim(0, fm.T[441])
         op_ax.set_xticks((0,fm.T[441]))
         op_ax.set_ylim(-1.1, 1.1)
         op_ax.set_yticks((-1, 1))
         op_ax.set_title("Total Output", fontsize=small)
-
+        self.output_axes.append(op_ax)
 
         env_ax = self.fig.add_subplot(n_rows, 1, n_rows)
         env_plot_params = self.synth.get_envelope_plot_params()
-        env_ax.plot(*env_plot_params)
+        env_ax.plot(*env_plot_params, color='k')
         env_ax.set_xlim(0, 1)
         env_ax.set_ylim(0, 1.1)
         env_ax.set_yticks((0, 1))
         env_ax.set_title("Output Envelope", fontsize=small)
-
+        self.env_ax = env_ax
+        
         for i in range(n_chains):
             chain_ax = self.fig.add_subplot(n_rows, 1, i+1)
             chain_ax_plot_params = self.synth.get_output_plot_params(i+1)
-            chain_ax.plot(*chain_ax_plot_params)
+            chain_ax.plot(*chain_ax_plot_params, color='k')
             chain_ax.set_xlim(0, fm.T[441])
             chain_ax.set_xticks((0, fm.T[441]))
             chain_ax.set_ylim(-1.1, 1.1)
             chain_ax.set_yticks((-1, 1))
             chain_ax.set_title(f"Chain {i+1} Output", fontsize=small)
-
-        self.fig.tight_layout()
+            self.output_axes.append(chain_ax)
+        self.fig.subplots_adjust(wspace=0, hspace=1)
         self.canvas.draw_idle()
 
 def main():
