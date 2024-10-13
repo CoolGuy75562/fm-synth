@@ -1,5 +1,5 @@
 # fm-synth
-basic fm synth implementation in python with Gtk gui
+fm synth with Gtk gui
 
 ## Table of Contents
 - [Installation](#installation)
