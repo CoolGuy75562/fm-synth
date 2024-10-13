@@ -31,10 +31,12 @@ For each nonzero entry a "chain" of operators of that length will be created. Th
 ![diagram](https://github.com/user-attachments/assets/6250adde-6b1c-42dd-bbfd-b951d9d9ede0)
 
 After pressing "OK" in the dialog, or after choosing an existing patch from a file, you are brought to the main screen. If you have created a new patch, the parameters of the operators will be initialised to some default values:
-![screenshot3](https://github.com/user-attachments/assets/9e339bff-6705-4c3e-8b58-967716a04194)
+
+![screenshot3](https://github.com/user-attachments/assets/afb6c4b1-996c-4a04-99a8-5ad833012e10)
 
 If you have selected a patch from a file, the parameters are all initialised to the values in the patch. This is how the screen appears if one has selected piano.json:
-![screenshot4](https://github.com/user-attachments/assets/8baf9c6b-d0cd-4228-a8d2-c1cc00d98f94)
+
+![screenshot4](https://github.com/user-attachments/assets/c40d9765-b523-4623-8fc5-7173e57c6758)
 
 Now that you have created or opened a patch, you are ready to listen to the sound it makes by pressing the "play" button, or experiment with the parameters.
 
