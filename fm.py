@@ -415,6 +415,8 @@ def reshape_list(vals, algorithm):
     Returns:
         new_vals: The list vals formatted according to algorithm as above.
     """
+    if len(vals) != sum(algorithm):
+        raise ValueError(f"vals {vals} not compatible with algorithm {algorithm}")
     new_vals = []
     vals_idx = 0
     for i in algorithm:

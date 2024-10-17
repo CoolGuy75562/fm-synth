@@ -4,37 +4,66 @@ import numpy as np
 
 class TestEnvelope(unittest.TestCase):
 
-    def test_create_envelope(self):
-        a = 0.2
-        d = 0.2
-        s_len = 0.2
-        s_level = 0.5
-        r = 0.1
-        self.assertEqual(np.size(fm.envelope(a,d,s_len,s_level,r)), np.size(fm.T))
-
-        r = 0.3
-        self.assertEqual(np.size(fm.envelope(a,d,s_len,s_level,r)), np.size(fm.T))
-
-        self.assertEqual(np.size(fm.envelope(0,0,0,0,0)), np.size(fm.T))
-
-        self.assertRaises(ValueError, fm.envelope, *[a, d, s_len, -1, r])
-        self.assertRaises(ValueError, fm.envelope, *[a, d, s_len, 2, r])
+    def test_typical_envelope_size(self):
+        a, d, s_len, s_level, r  = 0.2, 0.2, 0.2, 0.5, 0.1
+        expected = np.size(fm.T)
+        self.assertEqual(np.size(fm.envelope(a,d,s_len,s_level,r)), expected)
         
-class TestPatchMethods(unittest.TestCase):
+    def test_long_envelope_size(self):
+        a, d, s_len, s_level, r  = 0.2, 0.2, 0.2, 0.5, fm.SECONDS # 0.2 + 0.2 + 0.2 + SECONDS > SECONDS
+        expected = np.size(fm.T)
+        self.assertEqual(np.size(fm.envelope(a,d,s_len,s_level,r)), expected)
+        
+    def test_zero_envelope_size(self):
+        expected = np.size(fm.T)
+        self.assertEqual(np.size(fm.envelope(0,0,0,0,0)), expected)
 
-    def test_reshape_list(self):
-        # lists of equal length
-        self.assertEqual(fm.reshape_list([1, 2, 3, 4, 5, 6], [2, 2, 2]),
-                         [[1,2], [3,4], [5,6]])
-        # lists of differing length
-        self.assertEqual(fm.reshape_list([1, 2, 3, 4, 5, 6], [1, 2, 3]),
-                         [1, [2, 3], [4, 5, 6]])
-        # singletons
-        self.assertEqual(fm.reshape_list([1, 2, 3, 4, 5, 6], [1, 1, 1, 1, 1, 1]),
-                         [1, 2, 3, 4, 5, 6])
-        # singleton
-        self.assertEqual(fm.reshape_list([1], [1]), [1])
+    def test_sus_level_out_of_bounds(self):
+        a, d, s_len, r = 0.2, 0.2, 0.2, 0.1
+        with self.assertRaises(ValueError):
+            fm.envelope(a, d, s_len, -1, r)
+        with self.assertRaises(ValueError):
+            fm.envelope(a, d, s_len, 2, r)
+    
+class TestReshapeList(unittest.TestCase):
 
+    def test_equal_chain_lengths(self):
+        vals = [1, 2, 3, 4, 5, 6]
+        algorithm = [2, 2, 2]
+        expected = [[1, 2], [3, 4], [5, 6]]
+        self.assertEqual(fm.reshape_list(vals, algorithm), expected)
+    def test_different_chain_lengths(self):
+        vals = [1, 2, 3, 4, 5, 6]
+        algorithm = [3, 1, 2]
+        expected = [[1, 2, 3], 4, [5, 6]]
+        self.assertEqual(fm.reshape_list(vals, algorithm), expected)
+    def test_single_chains(self):
+        vals = [1, 2, 3, 4, 5, 6]
+        algorithm = [1, 1, 1, 1, 1, 1]
+        expected = [1, 2, 3, 4, 5, 6]
+        self.assertEqual(fm.reshape_list(vals, algorithm), expected)
+    def test_small_algorithms(self):
+        vals = [1, 2]
+        algorithm = [1, 1]
+        expected = [1, 2]
+        self.assertEqual(fm.reshape_list(vals, algorithm), expected)
+        algorithm = [2]
+        expected = [[1, 2]]
+        self.assertEqual(fm.reshape_list(vals, algorithm), expected)
+        vals = [1]
+        algorithm = [1]
+        expected = [1]
+        self.assertEqual(fm.reshape_list(vals, algorithm), expected)
+    def test_incompatible_args_raises_error(self):
+        vals = [1, 2, 3, 4, 5]
+        algorithm = [2, 2, 2]
+        with self.assertRaises(ValueError):
+            fm.reshape_list(vals, algorithm)
+        vals = [1, 2, 3, 4, 5, 6, 7]
+        with self.assertRaises(ValueError):
+            fm.reshape_list(vals, algorithm)
+
+class TestNewPatchAlgorithm(unittest.TestCase):
     def test_new_patch_algorithm(self):
 
         output_env = 1
