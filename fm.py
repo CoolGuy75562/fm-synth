@@ -432,26 +432,4 @@ def reshape_list(vals, algorithm):
             new_vals.append(vals_mbr)
     return new_vals
 
-def strlist_to_nums(strlist, param):
-    """ Converts a list of strings containing numbers to a list of
-    numbers of the appropriate type according to param.
 
-    Args:
-        strlist: A list of strings of numbers, or potentially a string of a number.
-        param: The name of the param in the patch vals are intended to be
-          parameters for.
-
-    Returns:
-        A list of integers or floats according to the correct type for
-        param, or a single integer or float if strlist was a single string.
-    """
-    param_type = {"freqs" : float,
-                  "mod_indices" : float,
-                  "envs" : float,
-                  "output_env" : float,
-                  "mod_0" : float,
-                  "algorithm" : int,
-                  "feedback" : int}
-    if isinstance(strlist, list):
-        return [param_type[param](a) for a in strlist]
-    return param_type[param](strlist)
