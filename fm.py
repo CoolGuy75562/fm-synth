@@ -4,6 +4,7 @@ and methods to create, change, save, and open patches.
 import math
 import json
 import os
+import tempfile
 
 import numpy as np
 import soundfile as sf
@@ -209,7 +210,6 @@ class Synth:
             return isinstance(self.patch["output_env"], list)
         return isinstance(self.patch["envs"][op-1], list)
 
-    # input: list of numbers as strings e.g. ["1", "2", "3"]
     # for freqs, mod_indices, feedback, output_env
     def set_patch_param(self, vals, param_name):
         """ Takes a list of parameter values, reformats the list
@@ -230,8 +230,9 @@ class Synth:
 
     def play_sound(self):
         """ Plays the sound of the synth output. """
-        sf.write("temp.wav", self.output_with_envelope, FS)
-        os.system(f'aplay ./temp.wav')
+        with tempfile.NamedTemporaryFile(suffix='.wav') as temp:
+            sf.write(temp, self.output_with_envelope, FS)
+            os.system(f'aplay {temp.name}')
 
     def get_envelope_plot_params(self):
         """ Gets x and y values for the envelope plot.
