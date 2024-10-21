@@ -1,8 +1,6 @@
 """ This module contains the main method and the Gtk frontend for the
 FM synthesizer.
 """
-import pdb
-
 import fm # ./fm.py
 
 import gi
@@ -399,18 +397,6 @@ class MainWindow(Gtk.Window):
             dialog.destroy()
         return fm.read_patch(patch_filename)
 
-    def _init_entry_headers(self):
-        headers = []
-        algorithm = self.synth.algorithm
-        op_count = 1
-        for i in algorithm:
-            for _ in range(i):
-                header_label = "op" + str(op_count)
-                header = Gtk.Label(label=header_label)
-                headers.append(header)
-                op_count += 1
-        return headers
-
     def on_play_button_clicked(self, widget):
         """ Plays the sound of the synth's output.
 
@@ -448,35 +434,6 @@ class MainWindow(Gtk.Window):
         output_plot_params = self.synth.get_output_plot_params()
         self.output_ax.plot(*output_plot_params, color='k')
         self.output_canvas.draw_idle()
-        
-    def init_plots(self):
-        """ Updates the plots in self.fig to current patch data in self.synth. """
-        small = 10
-        n_chains = len(self.synth.chains)
-        n_rows = n_chains + 2
-
-
-        op_ax = self.fig.add_subplot(n_rows, 1, n_rows-1)
-        output_plot_params = self.synth.get_output_plot_params()
-        op_ax.plot(*output_plot_params, clip_on=False, color='k')
-        op_ax.set_xlim(0, fm.T[441])
-        op_ax.set_xticks((0,fm.T[441]))
-        op_ax.set_ylim(-1.1, 1.1)
-        op_ax.set_yticks((-1, 1))
-        op_ax.set_title("Total Output", fontsize=small)
-        self.output_ax = op_ax
-
-        env_ax = self.fig.add_subplot(n_rows, 1, n_rows)
-        env_plot_params = self.synth.get_envelope_plot_params()
-        env_ax.plot(*env_plot_params, color='k')
-        env_ax.set_xlim(0, 1)
-        env_ax.set_ylim(0, 1.1)
-        env_ax.set_yticks((0, 1))
-        env_ax.set_title("Output Envelope", fontsize=small)
-        self.env_ax = env_ax
-
-        self.fig.subplots_adjust(wspace=0, hspace=1)
-        self.canvas.draw_idle()
 
 def main():
     """ Sets up the main window, then begins Gtk.main() loop. """
