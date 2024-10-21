@@ -87,7 +87,7 @@ class AlgorithmDialog(Gtk.Dialog):
         return [val for val in entry_vals if val != 0]
 
 
-class ChainWidget(Gtk.Box):
+class ChainWidget(Gtk.Grid):
     """ Section of mainwindow which shows information about the given chain """
     def __init__(self, synth, chain_ax, chain_canvas, chain_idx, main_window):
         super().__init__()
@@ -120,19 +120,17 @@ class ChainWidget(Gtk.Box):
         self.chain_ax, self.chain_canvas = chain_ax, chain_canvas
 
         # spinbuttons and update button go in a grid
-        grid = Gtk.Grid()
-        grid.attach(self.update_button, 0, 0, 2, 1)
-        grid.attach(self.chain_param_labels[0], 0, 1, 2, 1)
-        grid.attach(self.chain_param_labels[1], 0, 2, 2, 1)
-        grid.attach(self.chain_param_labels[2], 0, 3, 2, 1)
+        self.attach(self.update_button, 0, 0, 2, 1)
+        self.attach(self.chain_param_labels[0], 0, 1, 2, 1)
+        self.attach(self.chain_param_labels[1], 0, 2, 2, 1)
+        self.attach(self.chain_param_labels[2], 0, 3, 2, 1)
         for i, (freq_sb, mi_sb, fb_sb) in enumerate(zip(self.freq_spinbuttons,
                                                         self.mod_idx_spinbuttons,
                                                         self.feedback_spinbuttons)):
-            grid.attach(freq_sb, 2*i+2, 1, 2, 1)
-            grid.attach_next_to(mi_sb, freq_sb, Gtk.PositionType.BOTTOM, 2, 1)
-            grid.attach_next_to(fb_sb, mi_sb, Gtk.PositionType.BOTTOM, 2, 1)
+            self.attach(freq_sb, 2*i+2, 1, 2, 1)
+            self.attach_next_to(mi_sb, freq_sb, Gtk.PositionType.BOTTOM, 2, 1)
+            self.attach_next_to(fb_sb, mi_sb, Gtk.PositionType.BOTTOM, 2, 1)
 
-        self.pack_start(grid, True, True, 0)
 
         
     def on_update_button_clicked(self, widget):
