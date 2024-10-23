@@ -190,7 +190,6 @@ class OperatorChain:
         self._update_output(start_idx)
         
     def _update_output(self, idx: int) -> None:
-        if idx > self.n_ops-1 or idx < 0: raise ValueError()
         curr_op = self.operators[idx]
         curr_op.freq, curr_op.mod_idx, curr_op.env, curr_op.fb = self.freqs[idx], self.mod_indices[idx], self.envs[idx], self.feedback[idx]
         for op, freq, mi, env, fb in zip(self.operators[idx+1:],
@@ -405,20 +404,11 @@ def read_patch(patch_filename: str) -> dict:
 def new_patch_algorithm(algorithm: list[int]) -> dict:
     """ given an algorithm, initialises and returns a new patch with default values.
 
- e.g. given algorithm: [1, 2, 3],
-      returns patch: {"freqs" : [1, [1, 1], [1, 1, 1]],
-                      ...
-                      "output_env" : 1
-                      "mod_0" : [0, 0, 0],
-                      "algorithm" : [1, 2, 3],
-                      "feedback" : [0, [0, 0], [0, 0, 0]]
-                     }
     Args:
-        algorithm: The "shape" of the patch.
+        algorithm: A list defining the number of operators per chain
 
     Returns:
-        A new patch with default parameters that are the shape
-        specified by algorithm.
+        A new patch with default values in the right form to be used by the synth.
 """
     n_ops = int(np.sum(algorithm))
     freqs = reshape_list([1.0]*n_ops, algorithm)
