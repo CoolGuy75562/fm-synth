@@ -19,7 +19,7 @@ If they are not already installed, you will also need PyGObject, Gtk, and their 
 ## Usage
 To start the programme, navigate to the fm-synth directory and run
 ```bash
-python3 ./gui.py
+python3 gui.py
 ```
 You will be given the choice between creating a new patch, or opening an existing patch from a file:
 ![screenshot1](https://github.com/user-attachments/assets/c0223d25-7e8e-4f68-abac-cc5fdeb66398)
@@ -32,13 +32,13 @@ For each nonzero entry a "chain" of operators of that length will be created. Th
 
 After pressing "OK" in the dialog, or after choosing an existing patch from a file, you are brought to the main screen. If you have created a new patch, the parameters of the operators will be initialised to some default values:
 
-![screenshot3](https://github.com/user-attachments/assets/afb6c4b1-996c-4a04-99a8-5ad833012e10)
+![screenshot3](https://github.com/user-attachments/assets/0bd5dd85-5a89-4198-87fa-77a415fe864b)
 
 If you have selected a patch from a file, the parameters are all initialised to the values in the patch. This is how the screen appears if one has selected piano.json:
 
-![screenshot4](https://github.com/user-attachments/assets/c40d9765-b523-4623-8fc5-7173e57c6758)
+![screenshot4](https://github.com/user-attachments/assets/37241d05-4282-450e-9582-b2a5059858a4)
 
-Now that you have created or opened a patch, you are ready to listen to the sound it makes by pressing the "play" button, or experiment with the parameters.
+Now that you have created or opened a patch, you are ready to listen to the sound it makes by pressing the "play" button, or experiment with the parameters of each chain. 
 
 ### Operator Parameters
 An operator takes a modulating signal, frequency, and an envelope as inputs, 
@@ -52,11 +52,3 @@ where F_c, F_m, E_c, E_m, and f_c, f_m are the respective outputs, envelopes, an
 
 For more information see:
 CHOWNING, J. M. (1977). The Synthesis of Complex Audio Spectra by Means of Frequency Modulation. Computer Music Journal, 1(2), 46–54.
-
-### Plots
-From top to bottom, there is one plot for each operator chain output, a plot of the output (the sum of each chain output), and a plot of the output envelope if the patch has one, else just a plot of a line at y=1. 
-
-### Envelope
-If the switch in the bottom left is in the "off" position, turning it on will reveal adsr envelope parameters. If "update output_env" is then pressed, the envelope will be applied to the output, and the output envelope plot will be updated. 
-
-Turning the switch off will remove the envelope from the output and the output envelope plot will become a line at y=1.
