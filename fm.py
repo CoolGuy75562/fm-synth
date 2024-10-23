@@ -16,9 +16,9 @@ T = np.linspace(0, SECONDS, math.ceil(FS*SECONDS))
 NOTE = 440 # tuning frequency
 
 # this makes a sound vaguely similar to dx7 epiano
-default_patch = {"freqs" : [[14, 1], [1, 1], [1, 1]],
+default_patch = {"freqs" : [[14.0, 1.0], [1.0, 1.0], [1.0, 1.0]],
                  "mod_indices" : [[0, 58/99], [0, 89/99], [0,79/99]],
-                 "envs" : [[[1], [1]], [[1], [1]], [[1], [1]]],
+                 "envs" : [[[], []], [[], []], [[], []]],
                  "output_env" : [0.0125, 0.025, 0.15, 0.7, 0.05],
                  "mod_0" : [0, 0, 0],
                  "algorithm" : [2, 2, 2],
@@ -26,7 +26,7 @@ default_patch = {"freqs" : [[14, 1], [1, 1], [1, 1]],
                  }
 
 
-def envelope(a, d, s_len, s_level, r):
+def envelope(a: float, d: float, s_len: float, s_level: float, r: float) -> np.ndarray:
     """ Returns adsr envelope.
     Args:
         a: attack length in seconds
@@ -71,7 +71,7 @@ class Operator:
         mod: The wave to modulate the frequency of the operator's oscillator.
         out: The output of the operator after FM synthesis and envelope applied.
     """
-    def __init__(self, freq, mod_idx, env, fb, mod):
+    def __init__(self, freq: float, mod_idx: float, env: list, fb: int, mod: np.ndarray) -> None:
         """Initialises the Operator object.
 
         Args:
@@ -90,27 +90,27 @@ class Operator:
         self._out = None # output is not computed until needed
 
     @property
-    def freq(self):
+    def freq(self) -> float:
         return self._freq
 
     @freq.setter
-    def freq(self, value):
+    def freq(self, value: float) -> None:
         self._freq = value*NOTE
 
     @property
-    def env(self):
+    def env(self) -> np.ndarray:
         return self._env
 
     @env.setter
-    def env(self, value):
+    def env(self, value: list) -> None:
         self._env = envelope(*value) if value else np.ones(np.size(T))
 
     @property
-    def out(self):
+    def out(self) -> np.ndarray:
         self._update_out()
         return self._out
     
-    def _update_out(self):
+    def _update_out(self) -> None:
         fb_mod = self.mod
         for _ in range(0,self.fb):
             fb_mod = np.multiply(self._env,
@@ -119,8 +119,30 @@ class Operator:
                                np.sin(2*np.pi*self._freq*T + self.mod_idx*fb_mod))
 
 class OperatorChain:
+    """ A chain of operators.
 
-    def __init__(self, n_ops, mod_0, op_params):
+    It makes sense to group operators by their chains because changing the parameters of one
+    chain does not affect the output of other chains.
+
+    An operator chain's parameters are updated all at once, rather than per parameter
+    such as freqs or mod_indices. This is because changing any parameter for an operator
+    early in the chain already requires us to recompute the output of each successive operator
+    to get the output for the chain.
+
+    Attributes:
+        n_ops: The number of operators in the chain
+        freqs: A list of frequency parameters, one for each operator in the chain
+        mod_indices: ""
+        envs: ""
+        feedback: ""
+        mod_0: The modulating signal for the first operator in the chain.
+            For normal fm just set it to zero array.
+        output: The output of the last operator in the chain, i.e. the result of FM
+           synthesis.
+        operators: A list of the operators in the chain, with smaller index being
+            operator earlier in the chain.
+    """
+    def __init__(self, n_ops: int, mod_0: np.ndarray, op_params: tuple) -> None:
         if not n_ops: raise ValueError()
         for param in op_params:
             if len(param) != n_ops: raise ValueError()
@@ -141,7 +163,7 @@ class OperatorChain:
         self.output = curr_op.out
         self.operators = operators
 
-    def set_new_op_params(self, op_params):
+    def set_new_op_params(self, op_params: list[list]) -> None:
         """ Finds first operator whose parameters are being changed, then
         calls update_output to compute the new chain output.
 
@@ -165,9 +187,9 @@ class OperatorChain:
         self.envs[start_idx:] = envs[start_idx:]
         self.feedback[start_idx:] = feedback[start_idx:]
         # outputs of operators before idx need not change
-        self._update_output(idx=start_idx)
+        self._update_output(start_idx)
         
-    def _update_output(self, idx=0):
+    def _update_output(self, idx: int) -> None:
         if idx > self.n_ops-1 or idx < 0: raise ValueError()
         curr_op = self.operators[idx]
         curr_op.freq, curr_op.mod_idx, curr_op.env, curr_op.fb = self.freqs[idx], self.mod_indices[idx], self.envs[idx], self.feedback[idx]
@@ -180,10 +202,7 @@ class OperatorChain:
             op.mod = curr_op.out
             curr_op = op
         self.output = curr_op.out 
-
-
-    
-        
+   
         
 class Synth:
     """ The Synth class is responsible for computing the result of fm synthesis
@@ -195,13 +214,10 @@ class Synth:
           and the output envelope.
         chains: A list which can contain single operators, and operator chains,
           which are lists of operators whose outputs are "chained" together.
-        chain_outputs: A list of the output of each operator chain.
-        output_envelope: The envelope to be applied to the output.
         output: The normalised pointwise sum of the chain outputs,
           before the output envelope has been applied.
-        output_with_envelope: Output after envelope applied.
     """
-    def __init__(self, patch):
+    def __init__(self, patch: dict) -> None:
         self.patch = patch
         self.algorithm = self.patch["algorithm"]
         chains = []
@@ -222,11 +238,11 @@ class Synth:
             self._default_env_parameters = default_patch["output_env"]
         self._output_with_envelope = np.multiply(self.output, self._output_envelope)
         
-    def _update_output(self):
+    def _update_output(self) -> None:
         self.output = addsyn([getattr(chain, 'output') for chain in self.chains])
         self._output_with_envelope = np.multiply(self.output, self._output_envelope)
         
-    def _update_output_envelope(self):
+    def _update_output_envelope(self) -> None:
         if self.patch["output_env"]:
             self._output_envelope = envelope(*self.patch["output_env"])
             self._default_env_parameters = self.patch["output_env"]
@@ -234,21 +250,8 @@ class Synth:
             self._output_envelope = np.ones(np.size(T))
         self._output_with_envelope = np.multiply(self._output_envelope, self.output)
         
-    def get_patch_param(self, param_name):
-        """ Gets the parameter in the patch specified by param_name as an "un-nested" list.
 
-        Args:
-            param_name: The name of the patch parameter.
-
-        Returns:
-          An un-nested list of the patch parameter,
-          e.g., if we have patch["freqs"] = [[1, 14], [1, 1], [1, 1]],
-          then get_patch_param("freqs") returns [1, 14, 1, 1, 1, 1].
-        """
-        vals = self.patch[param_name]
-        return [j for i in vals for j in i]
-
-    def get_envelope_patch_param(self):
+    def get_envelope_patch_param(self) -> list[float]:
         """ Gets the envelope parameter in the patch for the
             specified operator, or the output envelope by default.
 
@@ -262,7 +265,7 @@ class Synth:
         """
         return self.patch["output_env"] if self.patch["output_env"] else self._default_env_parameters
 
-    def has_output_envelope(self):
+    def has_output_envelope(self) -> bool:
         """ Returns whether the specified operator has an envelope,
         or the output envelope by default.
 
@@ -275,7 +278,7 @@ class Synth:
         """
         return bool(self.patch["output_env"])
 
-    def set_chain_params(self, op_params, chain_idx):
+    def set_chain_params(self, op_params: list[list], chain_idx: int) -> None:
         """ Updates chain_idx-th chain to values op_params
         and updates patch to these new values
         
@@ -289,25 +292,24 @@ class Synth:
             self.patch[param_name][chain_idx] = op_params[i]
         self._update_output()
         
-    def set_output_env(self, vals):
+    def set_output_env(self, vals: list[int | float]) -> None:
         self.patch["output_env"] = vals
         self._update_output_envelope()
         
-    def play_sound(self):
+    def play_sound(self) -> None:
         """ Plays the sound of the synth output. """
         with tempfile.NamedTemporaryFile(suffix='.wav') as temp:
             sf.write(temp, self._output_with_envelope, FS)
             os.system(f'aplay {temp.name}')
 
-    def get_envelope_plot_params(self):
+    def get_envelope_plot_params(self) -> tuple[np.ndarray, np.ndarray]:
         """ Gets x and y values for the envelope plot.
         If an envelope is set, returns the envelope as an np.array,
         otherwise an np.array of ones.
         """
         return T, self._output_envelope
 
-    # sketchy
-    def get_output_plot_params(self):
+    def get_output_plot_params(self) -> tuple[np.ndarray, np.ndarray]:
         """ Gets x and y parameters for a plot of the output without envelope
         for the first 0.01 seconds, or the output of a chain if specified.
 
@@ -320,10 +322,10 @@ class Synth:
         """
         return T[0:441], self.output[0:441]
 
-    def get_chain_output_plot_params(self, chain_idx):
+    def get_chain_output_plot_params(self, chain_idx: int) -> tuple[np.ndarray, np.ndarray]:
         return T[0:441], self.chains[chain_idx].output[0:441]
     
-    def save_patch(self, patch_name):
+    def save_patch(self, patch_name: str) -> None:
         """ Saves the Synth object's patch attribute in a .json file.
 
         Args:
@@ -334,7 +336,7 @@ class Synth:
         print("patch saved in ", patch_name)
 
 # these will be used if non-sine fm is implemented
-def makesine(freq):
+def makesine(freq: float) -> np.ndarray:
     """ Returns a sine wave of frequency freq and duration SECONDS.
 
     Args:
@@ -345,7 +347,7 @@ def makesine(freq):
     """
     return np.sin(2*np.pi * freq * T)
 
-def makesaw(freq):
+def makesaw(freq: float) -> np.ndarray:
     """ Returns a saw wave of frequency freq and duration SECONDS.
 
     Args:
@@ -356,7 +358,7 @@ def makesaw(freq):
     """
     return 2*freq*(T % (1/freq)) - 1
 
-def makesquare(freq):
+def makesquare(freq: float) -> np.ndarray:
     """ Returns a square wave of frequency freq and duration SECONDS.
 
     Args:
@@ -367,7 +369,7 @@ def makesquare(freq):
     """
     return np.sign(makesine(freq))
 
-def addsyn(waves):
+def addsyn(waves: list[np.ndarray]) -> np.ndarray:
     """ Returns the normalised pointwise sum of a list of waves for
     additive synthesis.
 
@@ -384,7 +386,7 @@ def addsyn(waves):
 
 # -- PATCH METHODS --
 
-def read_patch(patch_filename):
+def read_patch(patch_filename: str) -> dict:
     """ Reads a patch from a .json file.
 
     Args:
@@ -400,7 +402,7 @@ def read_patch(patch_filename):
     return patch
 
 
-def new_patch_algorithm(algorithm):
+def new_patch_algorithm(algorithm: list[int]) -> dict:
     """ given an algorithm, initialises and returns a new patch with default values.
 
  e.g. given algorithm: [1, 2, 3],
@@ -419,8 +421,8 @@ def new_patch_algorithm(algorithm):
         specified by algorithm.
 """
     n_ops = int(np.sum(algorithm))
-    freqs = reshape_list([1]*n_ops, algorithm)
-    mod_indices = reshape_list([1]*n_ops, algorithm)
+    freqs = reshape_list([1.0]*n_ops, algorithm)
+    mod_indices = reshape_list([1.0]*n_ops, algorithm)
     envs = reshape_list([[]]*n_ops, algorithm)
     feedback = reshape_list([0]*n_ops, algorithm)
     output_env = []
@@ -435,40 +437,13 @@ def new_patch_algorithm(algorithm):
              }
     return patch
 
-def op_chain(freqs, mod_indices, envs, mod_0, feedbacks):
-    """ Initialises and computes the output of a chain of operators.
-
-    Args:
-        freqs: A list of frequencies, one per operator in the chain.
-        mod_indices: A list of modulation indices, one per operator in the chain.
-        envs: A list of envelopes, one per operator in the chain.
-        feedbacks: A list of feedback parameters, one per operator in the chain.
-        mod_0: The modulating wave for the first operator in the chain.
-          In current configuration should always be 0.
-
-    Returns:
-        getattr(curr_op, 'out'): The output of the final operator in the chain.
-        chain: A list of the operators in the chain, ordered from first to last.
-    """
-    chain = []
-    curr_op = Operator(freqs[0], mod_indices[0], envs[0], feedbacks[0], mod_0)
-    chain.append(curr_op)
-    for freq, mi, env, fb in zip(freqs[1:],
-                                 mod_indices[1:],
-                                 envs[1:],
-                                 feedbacks[1:]):
-        next_op = Operator(freq, mi, env, fb, curr_op.out)
-        chain.append(next_op)
-        curr_op = next_op
-    return curr_op.out, chain
-
 # -- HELPER METHODS --
-def reshape_list(vals, algorithm):
+def reshape_list(vals: list, algorithm: list[int]) -> list[list]:
     """ Reshapes a list of parameters for each operator into the correct
     format for a patch specified by algorithm.
 
     E.g., for the algorithm [1, 2, 3] and vals [1, 1, 1, 1, 1, 1],
-    reshape_list(vals, algorithm) returns [1, [1, 1], [1, 1, 1]].
+    reshape_list(vals, algorithm) returns [[1], [1, 1], [1, 1, 1]].
 
     Args:
         vals: A list of parameter values for each operator. List must be

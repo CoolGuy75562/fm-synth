@@ -10,10 +10,11 @@ from gi.repository import Gtk
 from matplotlib.backends.backend_gtk3agg import \
     FigureCanvasGTK3Agg as FigureCanvas # for figures in gtk window
 from matplotlib.figure import Figure
+from matplotlib.axes import Axes
 
 settings = Gtk.Settings.get_default()
 settings.set_property("gtk-theme-name", "Numix")
-settings.set_property("gtk-application-prefer-dark-theme", False)
+settings.set_property("gtk-application-prefer-dark-theme", False) # turn off dark mode
 
 sb_digits = {"freqs" : 5,
              "mod_indices" : 5,
@@ -49,13 +50,14 @@ sb_settings = {"freqs" : ([0, 0, 100, 1, 5, 0], 5),
                }
 
 class AlgorithmDialog(Gtk.Dialog):
-    """ Gtk dialog for user to enter number of operators per chain.
+    """ Dialog for getting the number of operators per chain (algorithm).
 
     Attributes:
-        chain_entries: A list of the dialog's spinbuttons for input.
+        chain_entries: A list of the spinbuttons used to input number of operators
+            for respective chain.
     """
     def __init__(self):
-        """ Creates and initialises "OK" button and spinbuttons,
+        """ Creates and initialises "OK" button and entry spinbuttons,
         and lays them out on a grid.
         """
         super().__init__(title="set algorithm")
@@ -80,26 +82,51 @@ class AlgorithmDialog(Gtk.Dialog):
         box.add(grid)
         self.show_all()
 
-    def get_algorithm(self):
-        """ Returns a list of the nonzero values of the entries. """
+    def get_algorithm(self) -> list[int]:
+        """ Returns a list of the values of the entries which are nonzero """
         entry_vals = [entry.get_value_as_int()
                       for entry in self.chain_entries]
         return [val for val in entry_vals if val != 0]
 
 
 class ChainWidget(Gtk.Grid):
-    """ Section of mainwindow which shows information about the given chain """
-    def __init__(self, synth, chain_ax, chain_canvas, chain_idx, main_window):
+    """ A grid containing entries for the parameters for each operator in a chain,
+    and a button to update the chain's operator parameters to those new values. 
+
+    ChainWidget is passed a reference to the chain output plot, so that when the
+    chain parameters are updated, the chain output plot is updated. Similarly
+    it is given a reference to the main window so that it can tell the main window
+    to update the output plot when a chain's output changes.
+
+    Attributes:
+        synth: The synth object
+        chain_idx: Which chain in synth we are working with
+        main_window: The main window
+        *_spinbuttons: List of spinbuttons for entry for respective operator parameters.
+        chain_canvas: The canvas containing the chain output plot
+        chain_ax: The Axes object for the chain output plot
+    """
+    def __init__(self, synth: fm.Synth, chain_ax: Axes, chain_canvas: FigureCanvas, chain_idx: int, main_window: Gtk.Window) -> None:
+        """ Sets up an input grid for parameters of an individual chain.
+
+        Args:
+            synth: The synth object whose chain we are working with
+            chain_ax: A reference to the chain output plot
+            chain_canvas: A reference to the canvas containing the chain output plot
+            chain_idx: Index of the chain in synth we are working with
+            main_window: A reference to the main window, so that when a chain is modified
+                we can ask the final output plot to update
+        """
         super().__init__()
         self.synth = synth
         self.chain_idx = chain_idx
         self.main_window = main_window
         
         # set up spinbuttons and update button for entering and updating chain parameters
-        self.update_button = Gtk.Button(label="update parameters")
-        self.update_button.connect("clicked", self.on_update_button_clicked)
+        update_button = Gtk.Button(label="update parameters")
+        update_button.connect("clicked", self.on_update_button_clicked)
 
-        def _init_chain_param_spinbuttons(param_name):
+        def _init_chain_param_spinbuttons(param_name: str) -> list[Gtk.SpinButton]:
             spinbuttons = []
             initial_vals = getattr(self.synth.chains[chain_idx], param_name)
             for val in initial_vals:
@@ -115,21 +142,21 @@ class ChainWidget(Gtk.Grid):
         self.mod_idx_spinbuttons = _init_chain_param_spinbuttons("mod_indices")
         self.feedback_spinbuttons = _init_chain_param_spinbuttons("feedback")
         param_names = ["freqs", "mod_indices", "feedback"]
-        self.chain_param_labels = [Gtk.Label(label=param_name) for param_name in param_names]
+        chain_param_labels = [Gtk.Label(label=param_name) for param_name in param_names]
 
         self.chain_ax, self.chain_canvas = chain_ax, chain_canvas
 
         # spinbuttons and update button go in a grid
-        self.attach(self.update_button, 0, 0, 2, 1)
-        self.attach(self.chain_param_labels[0], 0, 1, 2, 1)
-        self.attach(self.chain_param_labels[1], 0, 2, 2, 1)
-        self.attach(self.chain_param_labels[2], 0, 3, 2, 1)
+        self.attach(update_button, 0, 0, 1, 1)
+        self.attach(chain_param_labels[0], 0, 1, 1, 1)
+        self.attach(chain_param_labels[1], 0, 2, 1, 1)
+        self.attach(chain_param_labels[2], 0, 3, 1, 1)
         for i, (freq_sb, mi_sb, fb_sb) in enumerate(zip(self.freq_spinbuttons,
                                                         self.mod_idx_spinbuttons,
                                                         self.feedback_spinbuttons)):
-            self.attach(freq_sb, 2*i+2, 1, 2, 1)
-            self.attach_next_to(mi_sb, freq_sb, Gtk.PositionType.BOTTOM, 2, 1)
-            self.attach_next_to(fb_sb, mi_sb, Gtk.PositionType.BOTTOM, 2, 1)
+            self.attach(freq_sb, i+1, 1, 1, 1)
+            self.attach_next_to(mi_sb, freq_sb, Gtk.PositionType.BOTTOM, 1, 1)
+            self.attach_next_to(fb_sb, mi_sb, Gtk.PositionType.BOTTOM, 1, 1)
 
 
         
@@ -141,14 +168,14 @@ class ChainWidget(Gtk.Grid):
         self.synth.set_chain_params((freqs, mod_indices, envs, feedbacks), self.chain_idx)
         self.update_chain_plot()
 
-    def update_chain_plot(self):
+    def update_chain_plot(self) -> None:
         self.chain_ax.lines.clear()
         chain_plot_params = self.synth.get_chain_output_plot_params(self.chain_idx)
         self.chain_ax.plot(*chain_plot_params, color='k')
         self.chain_canvas.draw_idle()
-        self.main_window.update_plot() # not ideal
+        self.main_window.update_plot()
         
-class EnvelopeWidget(Gtk.Box):
+class EnvelopeWidget(Gtk.Grid):
     """ Box which holds entries and plot for output envelope.
     In the future this will also be able to deal with envelopes of individual operators.
     """
@@ -165,8 +192,8 @@ class EnvelopeWidget(Gtk.Box):
         for env_header_label in env_header_labels:
             env_header = Gtk.Label(label=env_header_label)
             env_headers.append(env_header)
-        self.update_output_env_button = Gtk.Button(label="update output_env")
-        self.update_output_env_button.connect("clicked", self.on_update_output_env_button_clicked)
+        update_output_env_button = Gtk.Button(label="update output_env")
+        update_output_env_button.connect("clicked", self.on_update_output_env_button_clicked)
 
         env_params = self.synth.get_envelope_patch_param() # default patch envelope params if no env
         self.env_spinbuttons = []
@@ -182,23 +209,17 @@ class EnvelopeWidget(Gtk.Box):
             env_sb.set_value(val)
             self.env_spinbuttons.append(env_sb)
 
-        # put labels and entries in grid
-        output_env_grid = Gtk.Grid()
-        output_env_grid.attach(self.update_output_env_button, 2, 1, 2, 1)
+        self.attach(update_output_env_button, 0, 0, 1, 1)
         for i, (env_sb, env_header) in enumerate(zip(self.env_spinbuttons, env_headers)):
-            output_env_grid.attach(env_sb, 2*i+4, 1, 2, 1)
-            output_env_grid.attach_next_to(env_header,
-                                           env_sb,
-                                           Gtk.PositionType.TOP,
-                                           2, 1)
-        self.pack_start(output_env_grid, True, True, 0)
+            self.attach(env_header, 0, i+1, 1, 1)
+            self.attach(env_sb, 1, i+1, 1, 1)
 
     def on_update_output_env_button_clicked(self, widget):
         output_env = [env_sb.get_value() for env_sb in self.env_spinbuttons]
         self.synth.set_output_env(output_env)
         self.update_plot()
 
-    def update_plot(self):
+    def update_plot(self) -> None:
         self.env_ax.lines.clear()
         env_plot_params = self.synth.get_envelope_plot_params()
         self.env_ax.plot(*env_plot_params, color='k')
@@ -208,45 +229,29 @@ class MainWindow(Gtk.Window):
     """ Gtk window which provides the interface between the user and the Synth
     object synth, and is also responsible for choosing the synth patch parameter.
 
-    MainWindow has three main sections that are each placed in a vbox.
-    From top to bottom these are:
-       - A Gtk.Grid which contains inputs for the freqs, mod_indices, and feedback
-         parameters, as well as a "play" button and a "save" button.
-       - A FigureCanvas which contains plots of the outputs of each chain,
-         the synth output without the output envelope, and the output envelope.
-       - A Gtk.Grid which contains a toggle switch, which when turned on
-         has inputs for output envelope parameters.
+    MainWindow contains three main areas, which are laid out in a Gtk.Grid:
+        - A sidebar which has a play button, a save button, and buttons to switch
+          the visible chain input area and chain plot.
+        - Input areas for chains and the output envelope.
+        - An output plot, plot for the current chain output, and output envelope plot.
 
     Attributes:
-        synth: An fm.Synth object which contains patch information and is
-            responsible for computing the synth output, etc.
-        to_hide: A list of widgets that will be hidden
-            when the window first appears.
-        fq_entries: A list of spinbuttons for entry of freq parameter,
-            one for each operator.
-        mi_entries: Ditto for mod_indices.
-        fb_entries: Ditto for feedback.
-        fig: The figure which all the plots go onto.
-        canvas: The FigureCanvas which fig goes into.
-        env_headers: A list of Gtk.Labels with the respective text
-            "attack", "decay", "sus_length", "sus_level", "release"
-        update_output_env_button: Updates output env in synth to new values. Hidden if
-            output_env_switch is in the "off" position.
-        output_env_entries: Entries for output envelope parameters. Hidden if
-            output_env_switch is in the "off" position.
+        synth: An fm.Synth object which is responsible for all synth computations
+            and handling patch data
+        output_ax: The Axes object containing the output plot.
+        output_canvas: The FigureCanvas containing output_ax.
+        chain_plot_stack: A stack containing a plot for each chain.
+            When the chain stack visible child is changed to another chain,
+            the visible chain plot is changed to the respective chain.
     """
     def __init__(self):
-        """ First initialises synth patch data, either by reading a
-        patch file, or getting an algorithm parameter from a dialog.
-        Then creates and initialises all the buttons, entries, and
-        plots in the way described in the class docstring.
+        """ First we initialise the Synth object, either with an existing patch
+            read from a json file, or by creating a new patch initialised to some
+            default values by specifying the desired number of chains and operators.
 
-        The number of inputs and plots on the screen depends on the
-        number of operators, which is determened by the Synth object's
-        algorithm parameter. For instance if algorithm = [2, 2, 2] we will
-        have 2 + 2 + 2 = 6 operator parameter inputs, and len(algorithm) = 3
-        chain output plots. Similarly if algorithm = [1, 2] we will have
-        3 parameter inputs and 2 chain output plots.
+        We then initialise plots for the output, chain outputs, and the output envelope,
+        and set up the stacks for the chain input areas and the chain plots.
+        We then set up the output envelope entry area, and finally put eveything in a grid.
         """
 
         super().__init__(title="pythonfm")
@@ -275,7 +280,7 @@ class MainWindow(Gtk.Window):
         self.to_hide = [] # for widgets we don't want to see at start
 
 
-        # initialise plots:
+        # -- Initialise Figures, Chain Stacks, and Chain Stack Switcher --
 
         fig = Figure()
         self.output_canvas = FigureCanvas(fig)
@@ -301,7 +306,7 @@ class MainWindow(Gtk.Window):
         env_ax.plot(*env_plot_params, color='k')
         output_env_canvas.draw_idle()
         
-        def _init_chain_plot(chain_idx):
+        def _init_chain_plot(chain_idx: int) -> tuple[Axes, FigureCanvas]:
             fig = Figure()
             chain_canvas = FigureCanvas(fig)
             chain_canvas.set_size_request(400, 150)
@@ -316,26 +321,20 @@ class MainWindow(Gtk.Window):
             chain_canvas.draw_idle()
             return chain_ax, chain_canvas
 
-        self.chain_axes = []
-        self.chain_canvases = []
+        chain_axes = []
+        chain_canvases = []
+        chain_stack = Gtk.Stack()
         self.chain_plot_stack = Gtk.Stack()
         for i in range(len(self.synth.patch["algorithm"])):
             chain_ax, chain_canvas = _init_chain_plot(i)
             self.chain_plot_stack.add_titled(chain_canvas, str(i), f"Chain {i+1}")
-            self.chain_axes.append(chain_ax)
-            self.chain_canvases.append(chain_canvas)
+            chain_widget = ChainWidget(self.synth, chain_ax, chain_canvas, i, self)
+            chain_stack.add_titled(chain_widget, str(i), f"Chain {i+1}")
             
-        self.chainwidgets = []
-        self.chain_stack = Gtk.Stack()
-        for i in range(len(self.synth.patch["algorithm"])):
-            chain_widget = ChainWidget(self.synth, self.chain_axes[i], self.chain_canvases[i], i, self)
-            self.chainwidgets.append(chain_widget)
-            self.chain_stack.add_titled(chain_widget, str(i), f"Chain {i+1}")
-            
-        self.chain_stack_switcher = Gtk.StackSwitcher()
-        self.chain_stack_switcher.set_orientation(Gtk.Orientation.VERTICAL)
-        self.chain_stack_switcher.set_stack(self.chain_stack)
-        self.chain_stack.connect("notify::visible-child", self.switch_chain_plot)
+        chain_stack_switcher = Gtk.StackSwitcher()
+        chain_stack_switcher.set_orientation(Gtk.Orientation.VERTICAL)
+        chain_stack_switcher.set_stack(chain_stack)
+        chain_stack.connect("notify::visible-child", self.switch_chain_plot)
         
         # initialise buttons
         play_button = Gtk.Button(label="play")
@@ -345,37 +344,50 @@ class MainWindow(Gtk.Window):
 
         
 
-        # -- ENVELOPE GRID --
+        # Envelope input area
         envelope_widget = EnvelopeWidget(self.synth, env_ax, output_env_canvas)
         
 
-        # set up box which the parameter grid, figures, and envelope grid go into
+        # edge box
         box = Gtk.Box()
         box.set_orientation(Gtk.Orientation.VERTICAL)
         box.pack_start(play_button, True, True, 0)
         box.pack_start(save_button, True, True, 0)
-        box.pack_start(self.chain_stack_switcher, True, True, 0)
+        box.pack_start(chain_stack_switcher, True, True, 0)
         
+        # figure frame
         figure_grid = Gtk.Grid()
         figure_grid.attach(self.output_canvas, 0, 0, 2, 4)
         figure_grid.attach(self.chain_plot_stack, 2, 0, 2, 2)
         figure_grid.attach(output_env_canvas, 2, 2, 2, 2)
         
+        
         # lay everything out in a grid
         grid = Gtk.Grid()
+        grid.set_row_spacing(10)
+        grid.set_column_spacing(10)
         grid.attach(box, 0, 0, 1, 3)
-        grid.attach_next_to(self.chain_stack, box, Gtk.PositionType.RIGHT, 1, 2)
-        grid.attach_next_to(envelope_widget, self.chain_stack, Gtk.PositionType.BOTTOM, 1, 1)
-        grid.attach_next_to(figure_grid, envelope_widget, Gtk.PositionType.BOTTOM, 3, 3)
+        grid.attach(Gtk.Separator(), 1, 0, 1, 3)
+        grid.attach(Gtk.Separator(), 1, 1, 3, 1)
+        chain_stack_frame = Gtk.Frame()
+        chain_stack_frame.add(chain_stack)
+        grid.attach(chain_stack_frame, 2, 0, 1, 1)
+        envelope_widget_frame = Gtk.Frame()
+        envelope_widget_frame.add(envelope_widget)
+        grid.attach(envelope_widget_frame, 3, 0, 1, 1)
+        grid.attach(figure_grid, 2, 2, 2, 1)
         
         self.add(grid)
         self.set_resizable(False)
 
-    def switch_chain_plot(self, chain_stack, gparamstring):
+    def switch_chain_plot(self, chain_stack: Gtk.Stack, gparamstring: str) -> None:
+        """ Sets the visible chain plot to corresponding to the chain stack
+        selected with the chain stack switcher.
+        """
         page_name = chain_stack.get_visible_child_name()
         self.chain_plot_stack.set_visible_child_name(page_name)
         
-    def _read_patch_from_file(self):
+    def _read_patch_from_file(self) -> dict:
         dialog = Gtk.FileChooserDialog(title="choose a file",
                                        parent=self,
                                        action=Gtk.FileChooserAction.OPEN
@@ -428,6 +440,7 @@ class MainWindow(Gtk.Window):
             self.synth.save_patch(patch_filename)
 
     def update_plot(self):
+        """ updates the output plot. """
         self.output_ax.lines.clear()
         output_plot_params = self.synth.get_output_plot_params()
         self.output_ax.plot(*output_plot_params, color='k')
