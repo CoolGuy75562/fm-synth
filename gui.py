@@ -47,38 +47,34 @@ ENV_YLIM = (0, 1.1)
 ENV_YTICKS = (0, 1)
 ENV_COLOR = 'k'
 ENV_TITLE_FONTSIZE = 10
-sb_digits = {"freqs" : 5,
-             "mod_indices" : 5,
-             "feedback" : 0
-             }
 
-sb_adjustment = {"freqs" : {"value" : 0,
-                            "lower" : 0,
-                            "upper" : 100,
-                            "step_increment" : 1,
-                            "page_increment" : 5,
-                            "page_size" : 0
-                            },
-                 "mod_indices" : {"value" : 0,
-                                  "lower" : 0,
-                                  "upper" : 100,
-                                  "step_increment" : 0.1,
-                                  "page_increment" : 1,
-                                  "page_size" : 0
-                                  },
-                 "feedback" : {"value" : 0,
-                               "lower" : 0,
-                               "upper" : 10,
-                               "step_increment" : 1,
-                               "page_increment" : 2,
-                               "page_size" : 0
-                               }
-                 }
+SPINBUTTON_DIGITS = {"freqs" : 5,
+                     "mod_indices" : 5,
+                     "feedback" : 0
+                     }
 
-sb_settings = {"freqs" : ([0, 0, 100, 1, 5, 0], 5),
-               "mod_indices" : ([0, 0, 100, 0.1, 1, 0], 5),
-               "feedback" : ([0, 0, 10, 1, 2, 0], 0)
-               }
+SPINBUTTON_ADJUSTMENT = {"freqs" : {"value" : 0,
+                                    "lower" : 0,
+                                    "upper" : 100,
+                                    "step_increment" : 1,
+                                    "page_increment" : 5,
+                                    "page_size" : 0
+                                    },
+                         "mod_indices" : {"value" : 0,
+                                          "lower" : 0,
+                                          "upper" : 100,
+                                          "step_increment" : 0.1,
+                                          "page_increment" : 1,
+                                          "page_size" : 0
+                                          },
+                         "feedback" : {"value" : 0,
+                                       "lower" : 0,
+                                       "upper" : 10,
+                                       "step_increment" : 1,
+                                       "page_increment" : 2,
+                                       "page_size" : 0
+                                       }
+                         }
 
 class AlgorithmDialog(Gtk.Dialog):
     """ Dialog for getting the number of operators per chain (algorithm).
@@ -162,9 +158,9 @@ class ChainWidget(Gtk.Grid):
             initial_vals = getattr(self.synth.chains[chain_idx], param_name)
             for val in initial_vals:
                 spinbutton = Gtk.SpinButton()
-                adjustment = Gtk.Adjustment(**sb_adjustment[param_name])
+                adjustment = Gtk.Adjustment(**SPINBUTTON_ADJUSTMENT[param_name])
                 spinbutton.set_adjustment(adjustment)
-                spinbutton.set_digits(sb_digits[param_name])
+                spinbutton.set_digits(SPINBUTTON_DIGITS[param_name])
                 spinbutton.set_value(val)
                 spinbuttons.append(spinbutton)
             return spinbuttons
