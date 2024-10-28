@@ -371,7 +371,8 @@ class MainWindow(Gtk.Window):
         play_button.connect("clicked", self.on_play_button_clicked)
         save_button = Gtk.Button(label="save")
         save_button.connect("clicked", self.on_save_button_clicked)
-
+        about_button = Gtk.Button(label="about")
+        about_button.connect("clicked", self.on_about_button_clicked)
         
 
         # Envelope input area
@@ -384,7 +385,7 @@ class MainWindow(Gtk.Window):
         box.pack_start(play_button, True, True, 0)
         box.pack_start(save_button, True, True, 0)
         box.pack_start(chain_stack_switcher, True, True, 0)
-        
+        box.pack_start(about_button, False, False, 0)
         # figure frame
         figure_grid = Gtk.Grid()
         figure_grid.attach(self.output_canvas, 0, 0, 2, 4)
@@ -469,6 +470,17 @@ class MainWindow(Gtk.Window):
             dialog.destroy()
             self.synth.save_patch(patch_filename)
 
+    def on_about_button_clicked(self, widget):
+        dialog = Gtk.AboutDialog()
+        dialog.set_program_name("fm-synth")
+        dialog.set_version("0.1")
+        dialog.set_copyright("(C) CoolGuy75562")
+        dialog.set_comments("FM Synthesizer")
+        dialog.set_website("https://github.com/CoolGuy75562/fm-synth")
+        dialog.set_license_type(Gtk.License(3))
+        dialog.run()
+        dialog.destroy()
+        
     def update_plot(self):
         """ updates the output plot. """
         self.output_ax.lines.clear()
