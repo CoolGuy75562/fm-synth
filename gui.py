@@ -28,6 +28,25 @@ settings = Gtk.Settings.get_default()
 settings.set_property("gtk-theme-name", "Numix")
 settings.set_property("gtk-application-prefer-dark-theme", False) # turn off dark mode
 
+OUTPUT_XLIM = (0, fm.T[fm.PLOT_LIM])
+OUTPUT_YLIM = (-1.1, 1.1)
+OUTPUT_XTICKS = (0, fm.T[fm.PLOT_LIM])
+OUTPUT_YTICKS = (-1, 1)
+OUTPUT_COLOR = 'k'
+OUTPUT_TITLE_FONTSIZE = 12
+
+CHAIN_XLIM = (0, fm.T[fm.PLOT_LIM])
+CHAIN_YLIM = (-1.1, 1.1)
+CHAIN_XTICKS = (0, fm.T[fm.PLOT_LIM])
+CHAIN_YTICKS = (-1, 1)
+CHAIN_COLOR = 'k'
+CHAIN_TITLE_FONTSIZE = 10
+
+ENV_XLIM = (0, fm.SECONDS)
+ENV_YLIM = (0, 1.1)
+ENV_YTICKS = (0, 1)
+ENV_COLOR = 'k'
+ENV_TITLE_FONTSIZE = 10
 sb_digits = {"freqs" : 5,
              "mod_indices" : 5,
              "feedback" : 0
@@ -298,24 +317,26 @@ class MainWindow(Gtk.Window):
         self.output_canvas = FigureCanvas(fig)
         self.output_canvas.set_size_request(600, 150)
         self.output_ax = fig.add_subplot(111)
-        self.output_ax.set_xlim(0, fm.T[441])
-        self.output_ax.set_ylim(-1.1, 1.1)
-        self.output_ax.set_xticks((0, fm.T[441]))
-        self.output_ax.set_yticks((-1, 1))
-        self.output_ax.set_title("Output", fontsize=12)
+        self.output_ax.set_xlim(*OUTPUT_XLIM)
+        self.output_ax.set_ylim(*OUTPUT_YLIM)
+        self.output_ax.set_xticks(OUTPUT_XTICKS)
+        self.output_ax.set_yticks(OUTPUT_YTICKS)
+        self.output_ax.set_title("Output",
+                                 fontsize=OUTPUT_TITLE_FONTSIZE)
         output_plot_params = self.synth.get_output_plot_params()
-        self.output_ax.plot(*output_plot_params, color='k')
+        self.output_ax.plot(*output_plot_params, color=OUTPUT_COLOR)
         
         fig = Figure()
         output_env_canvas = FigureCanvas(fig)
         output_env_canvas.set_size_request(400, 150)
         env_ax = fig.add_subplot(111)
-        env_ax.set_xlim(0, 1)
-        env_ax.set_ylim(0,1.1)
-        env_ax.set_yticks((0,1))
-        env_ax.set_title("Output Envelope", fontsize=10)
+        env_ax.set_xlim(*ENV_XLIM)
+        env_ax.set_ylim(*ENV_YLIM)
+        env_ax.set_yticks(ENV_YTICKS)
+        env_ax.set_title("Output Envelope",
+                         fontsize=ENV_TITLE_FONTSIZE)
         env_plot_params = self.synth.get_envelope_plot_params()
-        env_ax.plot(*env_plot_params, color='k')
+        env_ax.plot(*env_plot_params, color=ENV_COLOR)
         output_env_canvas.draw_idle()
         
         def _init_chain_plot(chain_idx: int) -> tuple[Axes, FigureCanvas]:
@@ -323,13 +344,14 @@ class MainWindow(Gtk.Window):
             chain_canvas = FigureCanvas(fig)
             chain_canvas.set_size_request(400, 150)
             chain_ax = fig.add_subplot(111)
-            chain_ax.set_xlim(0, fm.T[441])
-            chain_ax.set_ylim(-1.1, 1.1)
-            chain_ax.set_xticks((0, fm.T[441]))
-            chain_ax.set_yticks((-1, 1))
-            chain_ax.set_title(f"Chain {chain_idx+1} Output", fontsize=10)
+            chain_ax.set_xlim(*CHAIN_XLIM)
+            chain_ax.set_ylim(*CHAIN_YLIM)
+            chain_ax.set_xticks(CHAIN_XTICKS)
+            chain_ax.set_yticks(CHAIN_YTICKS)
+            chain_ax.set_title(f"Chain {chain_idx+1} Output",
+                               fontsize=CHAIN_TITLE_FONTSIZE)
             chain_ax_plot_params = self.synth.get_chain_output_plot_params(chain_idx)
-            chain_ax.plot(*chain_ax_plot_params, color='k')
+            chain_ax.plot(*chain_ax_plot_params, color=CHAIN_COLOR)
             chain_canvas.draw_idle()
             return chain_ax, chain_canvas
 

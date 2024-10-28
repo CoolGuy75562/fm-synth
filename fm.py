@@ -23,6 +23,7 @@ import soundfile as sf
 
 
 FS = 44100 # sample rate
+PLOT_LIM = FS//100 # for output plots, excluding envelope
 SECONDS = 1
 T = np.linspace(0, SECONDS, math.ceil(FS*SECONDS))
 NOTE = 440 # tuning frequency
@@ -331,10 +332,10 @@ class Synth:
         Returns:
             The x and y parameters for a plot for the first 0.01 seconds.
         """
-        return T[0:441], self.output[0:441]
+        return T[0:PLOT_LIM], self.output[0:PLOT_LIM]
 
     def get_chain_output_plot_params(self, chain_idx: int) -> tuple[np.ndarray, np.ndarray]:
-        return T[0:441], self.chains[chain_idx].output[0:441]
+        return T[0:PLOT_LIM], self.chains[chain_idx].output[0:PLOT_LIM]
     
     def save_patch(self, patch_name: str) -> None:
         """ Saves the Synth object's patch attribute in a .json file.
