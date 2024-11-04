@@ -341,6 +341,9 @@ class MainWindow(Gtk.Window):
             if response == Gtk.ResponseType.OK:
                 algorithm = dialog.get_algorithm()
                 dialog.destroy()
+            else:
+                dialog.destroy()
+                Gtk.main_quit()
             patch = fm.new_patch_algorithm(algorithm)
         self.synth = fm.Synth(patch)
 
@@ -357,6 +360,7 @@ class MainWindow(Gtk.Window):
                                  fontsize=OUTPUT_TITLE_FONTSIZE)
         output_plot_params = self.synth.get_output_plot_params()
         self.output_ax.plot(*output_plot_params, color=OUTPUT_COLOR)
+        fig.set_tight_layout(True)
 
         fig = Figure()
         output_env_canvas = FigureCanvas(fig)
@@ -369,6 +373,7 @@ class MainWindow(Gtk.Window):
                          fontsize=ENV_TITLE_FONTSIZE)
         env_plot_params = self.synth.get_envelope_plot_params()
         env_ax.plot(*env_plot_params, color=ENV_COLOR)
+        fig.set_tight_layout(True)
         output_env_canvas.draw_idle()
 
         def _init_chain_plot(chain_idx: int) -> tuple[Axes, FigureCanvas]:
@@ -386,6 +391,7 @@ class MainWindow(Gtk.Window):
                 chain_idx
             )
             chain_ax.plot(*chain_ax_plot_params, color=CHAIN_COLOR)
+            fig.set_tight_layout(True)
             chain_canvas.draw_idle()
             return chain_ax, chain_canvas
 
@@ -434,6 +440,8 @@ class MainWindow(Gtk.Window):
         figure_grid.attach(self.output_canvas, 0, 0, 2, 4)
         figure_grid.attach(self.chain_plot_stack, 2, 0, 2, 2)
         figure_grid.attach(output_env_canvas, 2, 2, 2, 2)
+        figure_grid.set_row_spacing(10)
+        figure_grid.set_column_spacing(10)
 
         # lay everything out in a grid
         grid = Gtk.Grid()
@@ -514,6 +522,8 @@ class MainWindow(Gtk.Window):
             patch_filename = dialog.get_filename()
             dialog.destroy()
             self.synth.save_patch(patch_filename)
+        if response == Gtk.ResponseType.CANCEL:
+            dialog.destroy()
 
     def on_about_button_clicked(self, widget):
         dialog = Gtk.AboutDialog()
