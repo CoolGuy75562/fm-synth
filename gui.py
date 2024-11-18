@@ -599,15 +599,13 @@ class MainWindow(Gtk.Window):
         self.output_ax.plot(*output_plot_params, color='k')
         self.output_canvas.draw_idle()
 
-    
 
-            
 def main():
     """ Sets up the main window, then begins Gtk.main() loop. """
-    #try:
-    win = MainWindow()
-    # except TypeError: # when error reading patch
-      #  sys.exit(1)
+    try:
+        win = MainWindow()
+    except TypeError: # when error reading patch
+        sys.exit(1)
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()
