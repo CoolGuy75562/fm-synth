@@ -1,5 +1,5 @@
 # fm-synth
-fm synth with Gtk gui
+fm synth with GTK gui
 
 ## Table of Contents
 - [Installation](#installation)
