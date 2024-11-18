@@ -251,11 +251,11 @@ class EnvelopeWidget(Gtk.Grid):
         for env_header_label in env_header_labels:
             env_header = Gtk.Label(label=env_header_label)
             env_headers.append(env_header)
-        update_output_env_button = Gtk.Button(label="Update Output Envelope")
-        update_output_env_button.connect(
+        self.update_output_env_button = Gtk.Button(label="Update Output Envelope")
+        self.update_output_env_button.connect(
             "clicked",
             self.on_update_output_env_button_clicked
-                                         )
+        )
         env_params = self.synth.get_envelope_patch_param()
         self.env_spinbuttons = []
         for val in env_params:
@@ -270,16 +270,21 @@ class EnvelopeWidget(Gtk.Grid):
             env_sb.set_value(val)
             self.env_spinbuttons.append(env_sb)
 
-        self.attach(update_output_env_button, 0, 0, 1, 1)
+        self.attach(self.update_output_env_button, 0, 0, 1, 1)
         for i, (env_sb, env_header) in enumerate(zip(self.env_spinbuttons,
                                                      env_headers)
                                                  ):
             self.attach(env_header, 0, i+1, 1, 1)
             self.attach(env_sb, 1, i+1, 1, 1)
 
+    def activate(self, val):
+        self.update_output_env_button.set_sensitive(val)
+        for button in self.env_spinbuttons:
+            button.set_sensitive(val)
+            
     def on_update_output_env_button_clicked(self, widget):
         output_env = [env_sb.get_value() for env_sb in self.env_spinbuttons]
-        self.synth.set_output_env(output_env)
+        self.synth.set_output_envelope(output_env)
         self.update_plot()
 
     def update_plot(self) -> None:
@@ -430,20 +435,30 @@ class MainWindow(Gtk.Window):
         # initialise buttons
         play_button = Gtk.Button(label="Play")
         play_button.connect("clicked", self.on_play_button_clicked)
+        
         save_button = Gtk.Button(label="Save Patch")
         save_button.connect("clicked", self.on_save_button_clicked)
+        
+        envelope_toggle = Gtk.CheckButton(label="Output Envelope")
+        envelope_toggle.connect("toggled", self.on_envelope_toggle_activated)
+        envelope_toggle.set_active(self.synth.has_output_envelope())
+        
         about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_about_button_clicked)
 
         # Envelope input area
-        envelope_widget = EnvelopeWidget(self.synth, env_ax, output_env_canvas)
-
+        self.envelope_widget = EnvelopeWidget(self.synth,
+                                              env_ax,
+                                              output_env_canvas)
+        self.envelope_widget.activate(self.synth.has_output_envelope())
+        
         # edge box
         box = Gtk.Box()
         box.set_orientation(Gtk.Orientation.VERTICAL)
         box.pack_start(play_button, True, True, 0)
         box.pack_start(save_button, True, True, 0)
         box.pack_start(chain_stack_switcher, True, True, 0)
+        box.pack_start(envelope_toggle, False, False, 0)
         box.pack_start(about_button, False, False, 0)
 
         # figure frame
@@ -463,13 +478,22 @@ class MainWindow(Gtk.Window):
         chain_stack_frame.add(chain_stack)
         grid.attach(chain_stack_frame, 2, 0, 1, 1)
         envelope_widget_frame = Gtk.Frame()
-        envelope_widget_frame.add(envelope_widget)
+        envelope_widget_frame.add(self.envelope_widget)
         grid.attach(envelope_widget_frame, 3, 0, 1, 1)
         grid.attach(figure_grid, 2, 2, 2, 1)
 
         self.add(grid)
         self.set_resizable(False)
 
+    def on_envelope_toggle_activated(self, togglebutton):
+        if togglebutton.get_active():
+            self.synth.set_output_envelope_to_prev()
+            self.envelope_widget.activate(True)
+        else:
+            self.synth.set_output_envelope([])
+            self.envelope_widget.activate(False)
+        self.envelope_widget.update_plot()
+        
     def switch_chain_plot(self,
                           chain_stack: Gtk.Stack,
                           gparamstring: str
@@ -580,10 +604,10 @@ class MainWindow(Gtk.Window):
             
 def main():
     """ Sets up the main window, then begins Gtk.main() loop. """
-    try:
-        win = MainWindow()
-    except TypeError: # when error reading patch
-        sys.exit(1)
+    #try:
+    win = MainWindow()
+    # except TypeError: # when error reading patch
+      #  sys.exit(1)
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()

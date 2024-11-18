@@ -281,12 +281,14 @@ class Synth:
         self.output = addsyn(
             [getattr(chain, 'output') for chain in self.chains]
         )
+        
         if self.patch["output_env"]:
             self._output_envelope = envelope(*self.patch["output_env"])
-            self._default_env_parameters = self.patch["output_env"]
+            self._prev_output_env_parameters = self.patch["output_env"]
         else:
             self._output_envelope = np.ones(np.size(T))
-            self._default_env_parameters = default_patch["output_env"]
+            self._prev_output_env_parameters = default_patch["output_env"]
+            
         self._output_with_envelope = np.multiply(self.output,
                                                  self._output_envelope
                                                  )
@@ -302,7 +304,7 @@ class Synth:
     def _update_output_envelope(self) -> None:
         if self.patch["output_env"]:
             self._output_envelope = envelope(*self.patch["output_env"])
-            self._default_env_parameters = self.patch["output_env"]
+            self._prev_output_env_parameters = self.patch["output_env"]
         else:
             self._output_envelope = np.ones(np.size(T))
         self._output_with_envelope = np.multiply(self._output_envelope,
@@ -325,7 +327,7 @@ class Synth:
         if self.patch["output_env"]:
             return self.patch["output_env"]
         else:
-            return self._default_env_parameters
+            return self._prev_output_env_parameters
 
     def has_output_envelope(self) -> bool:
         """ Returns whether the specified operator has an envelope,
@@ -356,10 +358,14 @@ class Synth:
             self.patch[param_name][chain_idx] = op_params[i]
         self._update_output()
 
-    def set_output_env(self, vals: list[int | float]) -> None:
+    def set_output_envelope(self, vals: list[int | float]) -> None:
         self.patch["output_env"] = vals
         self._update_output_envelope()
 
+    def set_output_envelope_to_prev(self) -> None:
+        self.patch["output_env"] = self._prev_output_env_parameters
+        self._update_output_envelope()
+        
     def play_sound(self) -> None:
         """ Plays the sound of the synth output. """
         with tempfile.NamedTemporaryFile(suffix='.wav') as temp:
