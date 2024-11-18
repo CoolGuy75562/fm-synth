@@ -13,7 +13,9 @@ FM synthesizer.
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #     GNU General Public License for more details.
 
-
+import sys
+import json
+import jsonschema
 import fm  # fm.py
 from matplotlib.figure import Figure
 from matplotlib.axes import Axes
@@ -21,8 +23,8 @@ from matplotlib.backends.backend_gtk3agg import \
     FigureCanvasGTK3Agg as FigureCanvas  # for figures in gtk window
 from gi.repository import Gtk
 import gi
-gi.require_version("Gtk", "3.0")
 
+gi.require_version("Gtk", "3.0")
 settings = Gtk.Settings.get_default()
 settings.set_property("gtk-theme-name", "Numix")
 # turn off dark mode
@@ -165,7 +167,7 @@ class ChainWidget(Gtk.Grid):
 
         # set up spinbuttons and update button
         # for entering and updating chain parameters
-        update_button = Gtk.Button(label="update parameters")
+        update_button = Gtk.Button(label="Update Parameters")
         update_button.connect("clicked", self.on_update_button_clicked)
 
         def _init_chain_param_spinbuttons(param_name: str
@@ -186,7 +188,7 @@ class ChainWidget(Gtk.Grid):
         self.freq_spinbuttons = _init_chain_param_spinbuttons("freqs")
         self.mod_idx_spinbuttons = _init_chain_param_spinbuttons("mod_indices")
         self.feedback_spinbuttons = _init_chain_param_spinbuttons("feedback")
-        param_names = ["freqs", "mod_indices", "feedback"]
+        param_names = ["Frequency", "Modulation Index", "Feedback"]
         chain_param_labels = [Gtk.Label(label=param_name)
                               for param_name in param_names]
 
@@ -205,6 +207,9 @@ class ChainWidget(Gtk.Grid):
             self.attach(freq_sb, i+1, 1, 1, 1)
             self.attach_next_to(mi_sb, freq_sb, Gtk.PositionType.BOTTOM, 1, 1)
             self.attach_next_to(fb_sb, mi_sb, Gtk.PositionType.BOTTOM, 1, 1)
+            op_label = Gtk.Label(label=f"Operator {str(i+1)}")
+            self.attach_next_to(op_label, freq_sb,
+                                Gtk.PositionType.TOP, 1, 1)
 
     def on_update_button_clicked(self, widget):
         freqs = [freq_sb.get_value() for freq_sb in self.freq_spinbuttons]
@@ -241,12 +246,12 @@ class EnvelopeWidget(Gtk.Grid):
 
         # initialise envelope parameter headers
         env_headers = []
-        env_header_labels = ["attack", "decay", "sustain",
-                             "sus level", "release"]
+        env_header_labels = ["Attack", "Decay", "Sustain",
+                             "Sustain Level", "Release"]
         for env_header_label in env_header_labels:
             env_header = Gtk.Label(label=env_header_label)
             env_headers.append(env_header)
-        update_output_env_button = Gtk.Button(label="update output_env")
+        update_output_env_button = Gtk.Button(label="Update Output Envelope")
         update_output_env_button.connect(
             "clicked",
             self.on_update_output_env_button_clicked
@@ -320,7 +325,7 @@ class MainWindow(Gtk.Window):
             and finally put eveything in a grid.
         """
 
-        super().__init__(title="pythonfm")
+        super().__init__(title="FM Synthesizer")
         option_dialog = Gtk.MessageDialog(
             transient_for=self,
             flags=0,
@@ -348,6 +353,8 @@ class MainWindow(Gtk.Window):
         self.synth = fm.Synth(patch)
 
         # Initialise figures, chain stack, and chain stack switcher
+
+        # output plot
         fig = Figure()
         self.output_canvas = FigureCanvas(fig)
         self.output_canvas.set_size_request(600, 150)
@@ -362,6 +369,7 @@ class MainWindow(Gtk.Window):
         self.output_ax.plot(*output_plot_params, color=OUTPUT_COLOR)
         fig.set_tight_layout(True)
 
+        # envelope plot
         fig = Figure()
         output_env_canvas = FigureCanvas(fig)
         output_env_canvas.set_size_request(400, 150)
@@ -369,13 +377,14 @@ class MainWindow(Gtk.Window):
         env_ax.set_xlim(*ENV_XLIM)
         env_ax.set_ylim(*ENV_YLIM)
         env_ax.set_yticks(ENV_YTICKS)
-        env_ax.set_title("Output Envelope",
+        env_ax.set_title("Envelope",
                          fontsize=ENV_TITLE_FONTSIZE)
         env_plot_params = self.synth.get_envelope_plot_params()
         env_ax.plot(*env_plot_params, color=ENV_COLOR)
         fig.set_tight_layout(True)
         output_env_canvas.draw_idle()
 
+        # chain plot for each chain
         def _init_chain_plot(chain_idx: int) -> tuple[Axes, FigureCanvas]:
             fig = Figure()
             chain_canvas = FigureCanvas(fig)
@@ -395,6 +404,8 @@ class MainWindow(Gtk.Window):
             chain_canvas.draw_idle()
             return chain_ax, chain_canvas
 
+        # make chain stack and plot stack.
+        # chain widget each given reference to resp. plot
         chain_stack = Gtk.Stack()
         self.chain_plot_stack = Gtk.Stack()
         for i in range(len(self.synth.patch["algorithm"])):
@@ -417,11 +428,11 @@ class MainWindow(Gtk.Window):
         chain_stack.connect("notify::visible-child", self.switch_chain_plot)
 
         # initialise buttons
-        play_button = Gtk.Button(label="play")
+        play_button = Gtk.Button(label="Play")
         play_button.connect("clicked", self.on_play_button_clicked)
-        save_button = Gtk.Button(label="save")
+        save_button = Gtk.Button(label="Save Patch")
         save_button.connect("clicked", self.on_save_button_clicked)
-        about_button = Gtk.Button(label="about")
+        about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_about_button_clicked)
 
         # Envelope input area
@@ -445,8 +456,6 @@ class MainWindow(Gtk.Window):
 
         # lay everything out in a grid
         grid = Gtk.Grid()
-        grid.set_row_spacing(10)
-        grid.set_column_spacing(10)
         grid.attach(box, 0, 0, 1, 3)
         grid.attach(Gtk.Separator(), 1, 0, 1, 3)
         grid.attach(Gtk.Separator(), 1, 1, 3, 1)
@@ -489,8 +498,31 @@ class MainWindow(Gtk.Window):
         if file_response == Gtk.ResponseType.OK:
             patch_filename = dialog.get_filename()
             dialog.destroy()
-        return fm.read_patch(patch_filename)
+            # don't like this, GtkApplication I think will solve this kind of thing
+            patch = None
+            try:
+                patch = fm.read_patch(patch_filename)
+            except json.JSONDecodeError:
+                self.show_patch_error_dialog(f"Error decoding json in {patch_filename}")
+            except jsonschema.ValidationError:
+                self.show_patch_error_dialog(f"Invalid patch file {patch_filename}")
+            return patch
 
+    def show_patch_error_dialog(self, message):
+        patch_error_dialog = Gtk.MessageDialog(
+            transient_for=self,
+            flags=0,
+            message_type=Gtk.MessageType.INFO,
+            buttons=Gtk.ButtonsType.OK,
+            text="Error"
+            )
+        patch_error_dialog.format_secondary_text(
+            message
+        )
+        response = patch_error_dialog.run()
+        if response == Gtk.ResponseType.OK:
+            patch_error_dialog.destroy()
+            
     def on_play_button_clicked(self, widget):
         """ Plays the sound of the synth's output.
 
@@ -543,10 +575,15 @@ class MainWindow(Gtk.Window):
         self.output_ax.plot(*output_plot_params, color='k')
         self.output_canvas.draw_idle()
 
+    
 
+            
 def main():
     """ Sets up the main window, then begins Gtk.main() loop. """
-    win = MainWindow()
+    try:
+        win = MainWindow()
+    except TypeError: # when error reading patch
+        sys.exit(1)
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()

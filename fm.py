@@ -15,6 +15,7 @@ and methods to create, change, save, and open patches.
 
 import math
 import json
+from jsonschema import validate
 import os
 import tempfile
 import numpy as np
@@ -464,8 +465,57 @@ def read_patch(patch_filename: str) -> dict:
         The patch read from the file with the name patch_filename in the
           current directory.
     """
+
+    # TODO: no. arguments based on algorithm
+    schema = {
+        "type": "object",
+        "properties": {
+            "algorithm": {
+                "type": "array",
+                "items": {"type": "number"}
+            },
+            "mod_0": {
+                "type": "array",
+                "items": {"type": "number"}
+            },
+            "freqs": {
+                "type": "array",
+                "items": {"type": "array",
+                          "items": {"type": "number"}
+                          }
+            },
+            "mod_indices": {
+                "type": "array",
+                "items": {"type": "array",
+                          "items": {"type": "number"}
+                          }
+            },
+            "feedback": {
+                "type": "array",
+                "items": {"type": "array",
+                          "items": {"type": "number"}
+                          }
+            },
+            "output_env": {
+                "type": "array",
+                "items": {"type": ["number", "array"]}
+            },
+            "envs": {
+                "type": "array",
+                "items": {"type": "array",
+                          "items": {"type": ["number", "array"]}
+                          }
+            }
+        },
+        "required": ["algorithm", "mod_0", "freqs",
+                     "mod_indices", "feedback",
+                     "output_env", "envs"
+                     ]
+    }
+
     with open(patch_filename, encoding="utf-8") as f:
         patch = json.load(f)
+    validate(instance=patch, schema=schema)
     print(patch)
     return patch
 
@@ -496,6 +546,7 @@ def new_patch_algorithm(algorithm: list[int]) -> dict:
              "algorithm": algorithm,
              "feedback": feedback
              }
+    print(patch)
     return patch
 
 
