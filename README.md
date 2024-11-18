@@ -32,15 +32,28 @@ For each nonzero entry a "chain" of operators of that length will be created. Th
 
 After pressing "OK" in the dialog, or after choosing an existing patch from a file, you are brought to the main screen. If you have created a new patch, the parameters of the operators will be initialised to some default values:
 
-![screenshot3](https://github.com/user-attachments/assets/0bd5dd85-5a89-4198-87fa-77a415fe864b)
+![default](https://github.com/user-attachments/assets/5024c437-9eae-414d-9409-530cd4f0e0f1)
 
 If you have selected a patch from a file, the parameters are all initialised to the values in the patch. This is how the screen appears if one has selected piano.json:
 
-![screenshot4](https://github.com/user-attachments/assets/37241d05-4282-450e-9582-b2a5059858a4)
+![piano](https://github.com/user-attachments/assets/70f020cb-92b1-48b8-8c80-64a55b0863d2)
 
-Now that you have created or opened a patch, you are ready to listen to the sound it makes by pressing the "play" button, or experiment with the parameters of each chain. 
+Now that you have created or opened a patch, you are ready to listen to the sound it makes by pressing the "Play" button, and adjust the parameters of each operator and the envelope.
 
 ### Operator Parameters
+
+To change the parameters of the operators in a chain, type in the desired values for each operator and press "Update Parameters".
+
+![parameters](https://github.com/user-attachments/assets/2c914295-2744-43bc-96a1-da6c9037bf09)
+
+To switch to the output plot and parameters for a different chain, select the chain on the sidebar:
+
+![chain_switch](https://github.com/user-attachments/assets/ad4de627-599a-47ef-b535-c7302e308dac)
+
+Here we have selected Chain 2, and the parameter area and output plots have been updated to those of Chain 2:
+
+![chains](https://github.com/user-attachments/assets/77de12ef-c451-4bad-85b6-42d42edc4cea)
+
 An operator takes a modulating signal, frequency, and an envelope as inputs, 
 ![untitled(1)](https://github.com/user-attachments/assets/a953457b-4570-42da-b538-5eb278a7f60e)
 
@@ -50,5 +63,12 @@ If we have two operators, a modulator and a carrier, the output will be
 
 where F_c, F_m, E_c, E_m, and f_c, f_m are the respective outputs, envelopes, and frequencies for the carrier and modulator, and I is the modulation index.
 
-For more information see:
-CHOWNING, J. M. (1977). The Synthesis of Complex Audio Spectra by Means of Frequency Modulation. Computer Music Journal, 1(2), 46–54.
+This is based on the paper
+Chowning, J. M. (1977). The Synthesis of Complex Audio Spectra by Means of Frequency Modulation. Computer Music Journal, 1(2), 46–54.
+
+### Output Envelope
+
+An ADSR envelope is applied to the output. To change the parameters, update the values in the entry boxes and press "Update Output Envelope". The envelope output plot will show the updated envelope.
+
+![envelope](https://github.com/user-attachments/assets/0abedd92-89ae-4063-a60e-672c321da638)
+
