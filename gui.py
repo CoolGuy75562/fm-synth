@@ -11,7 +11,7 @@ FM synthesizer.
 #     This program is distributed in the hope that it will be useful,
 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#     GNU General Public License for more details.
+#     GNU General Public License for more details.`
 
 import sys
 import json
@@ -36,6 +36,7 @@ OUTPUT_XTICKS = (0, fm.T[fm.PLOT_LIM])
 OUTPUT_YTICKS = (-1, 1)
 OUTPUT_COLOR = 'k'
 OUTPUT_TITLE_FONTSIZE = 12
+OUTPUT_CANVAS_SIZE = (600, 300)
 
 CHAIN_XLIM = (0, fm.T[fm.PLOT_LIM])
 CHAIN_YLIM = (-1.1, 1.1)
@@ -43,12 +44,18 @@ CHAIN_XTICKS = (0, fm.T[fm.PLOT_LIM])
 CHAIN_YTICKS = (-1, 1)
 CHAIN_COLOR = 'k'
 CHAIN_TITLE_FONTSIZE = 10
+CHAIN_CANVAS_SIZE = (300, 150)
 
 ENV_XLIM = (0, fm.SECONDS)
 ENV_YLIM = (0, 1.1)
 ENV_YTICKS = (0, 1)
 ENV_COLOR = 'k'
 ENV_TITLE_FONTSIZE = 10
+ENV_CANVAS_SIZE = (300, 150)
+
+SIDEBAR_SIZE = (50, 500)
+CHAIN_INPUT_SIZE = (600, 200)
+ENV_INPUT_SIZE = (300, 200)
 
 SPINBUTTON_DIGITS = {"freqs": 5, "mod_indices": 5, "feedback": 0}
 SPINBUTTON_ADJUSTMENT = {
@@ -91,15 +98,18 @@ class AlgorithmDialog(Gtk.Dialog):
         and lays them out on a grid.
         """
         super().__init__(title="set algorithm")
+
         self.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
 
         grid = Gtk.Grid()
+
+        # set up spinbuttons
         self.chain_entries = []
         initial_vals = [2, 2, 2]
-        # so that there is at least one operator:
         lower_limits = [1, 0, 0]
         for i, (val, lower_limit) in enumerate(zip(initial_vals,
-                                                   lower_limits)):
+                                                   lower_limits)
+                                               ):
             adjustment = Gtk.Adjustment(upper=5,
                                         lower=lower_limit,
                                         step_increment=1,
@@ -111,6 +121,7 @@ class AlgorithmDialog(Gtk.Dialog):
             chain_entry.update()
             grid.attach(chain_entry, 3*i, 0, 2, 1)
             self.chain_entries.append(chain_entry)
+
         box = self.get_content_area()
         box.add(grid)
         self.show_all()
@@ -279,11 +290,6 @@ class EnvelopeWidget(Gtk.Grid):
             self.attach(env_header, 0, i+1, 1, 1)
             self.attach(env_sb, 1, i+1, 1, 1)
 
-    def activate(self, val):
-        self.update_output_env_button.set_sensitive(val)
-        for button in self.env_spinbuttons:
-            button.set_sensitive(val)
-
     def on_update_output_env_button_clicked(self, widget):
         output_env = [env_sb.get_value() for env_sb in self.env_spinbuttons]
         self.synth.set_output_envelope(output_env)
@@ -294,6 +300,11 @@ class EnvelopeWidget(Gtk.Grid):
         env_plot_params = self.synth.get_envelope_plot_params()
         self.env_ax.plot(*env_plot_params, color='k')
         self.env_canvas.draw_idle()
+
+    def activate(self, val):
+        self.update_output_env_button.set_sensitive(val)
+        for button in self.env_spinbuttons:
+            button.set_sensitive(val)
 
 
 class MainWindow(Gtk.Window):
@@ -335,7 +346,7 @@ class MainWindow(Gtk.Window):
         # output plot
         fig = Figure()
         self.output_canvas = FigureCanvas(fig)
-        self.output_canvas.set_size_request(600, 150)
+        self.output_canvas.set_size_request(*OUTPUT_CANVAS_SIZE)
         self.output_ax = fig.add_subplot(111)
         self.output_ax.set_xlim(*OUTPUT_XLIM)
         self.output_ax.set_ylim(*OUTPUT_YLIM)
@@ -350,7 +361,7 @@ class MainWindow(Gtk.Window):
         # envelope plot
         fig = Figure()
         output_env_canvas = FigureCanvas(fig)
-        output_env_canvas.set_size_request(400, 150)
+        output_env_canvas.set_size_request(*ENV_CANVAS_SIZE)
         env_ax = fig.add_subplot(111)
         env_ax.set_xlim(*ENV_XLIM)
         env_ax.set_ylim(*ENV_YLIM)
@@ -366,7 +377,7 @@ class MainWindow(Gtk.Window):
         def _init_chain_plot(chain_idx: int) -> tuple[Axes, FigureCanvas]:
             fig = Figure()
             chain_canvas = FigureCanvas(fig)
-            chain_canvas.set_size_request(400, 150)
+            chain_canvas.set_size_request(*CHAIN_CANVAS_SIZE)
             chain_ax = fig.add_subplot(111)
             chain_ax.set_xlim(*CHAIN_XLIM)
             chain_ax.set_ylim(*CHAIN_YLIM)
@@ -427,6 +438,7 @@ class MainWindow(Gtk.Window):
 
         # edge box
         box = Gtk.Box()
+        box.set_size_request(*SIDEBAR_SIZE)
         box.set_orientation(Gtk.Orientation.VERTICAL)
         box.pack_start(play_button, True, True, 0)
         box.pack_start(save_button, True, True, 0)
@@ -444,17 +456,20 @@ class MainWindow(Gtk.Window):
 
         # lay everything out in a grid
         grid = Gtk.Grid()
-        grid.attach(box, 0, 0, 1, 3)
-        grid.attach(Gtk.Separator(), 1, 0, 1, 3)
-        grid.attach(Gtk.Separator(), 1, 1, 3, 1)
+        grid.attach(box, 0, 0, 1, 5)
+        # grid.attach(Gtk.Separator(), 1, 0, 1, 3)
+        # grid.attach(Gtk.Separator(), 1, 1, 3, 1)
         chain_stack_frame = Gtk.Frame()
+        chain_stack_frame.set_size_request(*CHAIN_INPUT_SIZE)
         chain_stack_frame.add(chain_stack)
-        grid.attach(chain_stack_frame, 2, 0, 1, 1)
+        grid.attach(chain_stack_frame, 1, 0, 12, 2)
         envelope_widget_frame = Gtk.Frame()
+        envelope_widget_frame.set_size_request(*ENV_INPUT_SIZE)
         envelope_widget_frame.add(self.envelope_widget)
-        grid.attach(envelope_widget_frame, 3, 0, 1, 1)
-        grid.attach(figure_grid, 2, 2, 2, 1)
-
+        grid.attach(envelope_widget_frame, 13, 0, 6, 2)
+        figure_grid_frame = Gtk.Frame()
+        figure_grid_frame.add(figure_grid)
+        grid.attach(figure_grid_frame, 1, 2, 18, 3)
         self.add(grid)
         self.set_resizable(False)
 
@@ -466,16 +481,6 @@ class MainWindow(Gtk.Window):
             self.synth.set_output_envelope([])
             self.envelope_widget.activate(False)
         self.envelope_widget.update_plot()
-
-    def switch_chain_plot(self,
-                          chain_stack: Gtk.Stack,
-                          gparamstring: str
-                          ) -> None:
-        """ Sets the visible chain plot to corresponding to the chain stack
-        selected with the chain stack switcher.
-        """
-        page_name = chain_stack.get_visible_child_name()
-        self.chain_plot_stack.set_visible_child_name(page_name)
 
     def on_play_button_clicked(self, widget):
         """ Plays the sound of the synth's output.
@@ -521,6 +526,16 @@ class MainWindow(Gtk.Window):
         dialog.set_license_type(Gtk.License(3))
         dialog.run()
         dialog.destroy()
+
+    def switch_chain_plot(self,
+                          chain_stack: Gtk.Stack,
+                          gparamstring: str
+                          ) -> None:
+        """ Sets the visible chain plot to corresponding to the chain stack
+        selected with the chain stack switcher.
+        """
+        page_name = chain_stack.get_visible_child_name()
+        self.chain_plot_stack.set_visible_child_name(page_name)
 
     def update_plot(self):
         """ updates the output plot. """
