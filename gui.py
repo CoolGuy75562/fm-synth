@@ -251,7 +251,9 @@ class EnvelopeWidget(Gtk.Grid):
         for env_header_label in env_header_labels:
             env_header = Gtk.Label(label=env_header_label)
             env_headers.append(env_header)
-        self.update_output_env_button = Gtk.Button(label="Update Output Envelope")
+        self.update_output_env_button = Gtk.Button(
+            label="Update Output Envelope"
+        )
         self.update_output_env_button.connect(
             "clicked",
             self.on_update_output_env_button_clicked
@@ -281,7 +283,7 @@ class EnvelopeWidget(Gtk.Grid):
         self.update_output_env_button.set_sensitive(val)
         for button in self.env_spinbuttons:
             button.set_sensitive(val)
-            
+
     def on_update_output_env_button_clicked(self, widget):
         output_env = [env_sb.get_value() for env_sb in self.env_spinbuttons]
         self.synth.set_output_envelope(output_env)
@@ -316,13 +318,8 @@ class MainWindow(Gtk.Window):
             When the chain stack visible child is changed to another chain,
             the visible chain plot is changed to the respective chain.
     """
-    def __init__(self):
-        """ First we initialise the Synth object, either with an existing patch
-                read from a json file, or by creating a new patch
-                initialised to some default values by specifying
-                the desired number of chains and operators.
-
-        We then initialise plots for the output,
+    def __init__(self, synth):
+        """ We initialise plots for the output,
             chain outputs, and the output envelope,
             and set up the stacks for the chain input areas
             and the chain plots.
@@ -331,31 +328,7 @@ class MainWindow(Gtk.Window):
         """
 
         super().__init__(title="FM Synthesizer")
-        option_dialog = Gtk.MessageDialog(
-            transient_for=self,
-            flags=0,
-            message_type=Gtk.MessageType.QUESTION,
-            buttons=Gtk.ButtonsType.YES_NO,
-            text="",
-        )
-        option_dialog.format_secondary_text(
-            "Do you wish to open an existing patch?"
-        )
-        response = option_dialog.run()
-        option_dialog.destroy()
-        if response == Gtk.ResponseType.YES:  # choose patch from file
-            patch = self._read_patch_from_file()
-        else:  # make new patch by specifying algorithm
-            dialog = AlgorithmDialog()
-            response = dialog.run()
-            if response == Gtk.ResponseType.OK:
-                algorithm = dialog.get_algorithm()
-                dialog.destroy()
-            else:
-                dialog.destroy()
-                Gtk.main_quit()
-            patch = fm.new_patch_algorithm(algorithm)
-        self.synth = fm.Synth(patch)
+        self.synth = synth
 
         # Initialise figures, chain stack, and chain stack switcher
 
@@ -435,14 +408,14 @@ class MainWindow(Gtk.Window):
         # initialise buttons
         play_button = Gtk.Button(label="Play")
         play_button.connect("clicked", self.on_play_button_clicked)
-        
+
         save_button = Gtk.Button(label="Save Patch")
         save_button.connect("clicked", self.on_save_button_clicked)
-        
+
         envelope_toggle = Gtk.CheckButton(label="Output Envelope")
         envelope_toggle.connect("toggled", self.on_envelope_toggle_activated)
         envelope_toggle.set_active(self.synth.has_output_envelope())
-        
+
         about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_about_button_clicked)
 
@@ -451,7 +424,7 @@ class MainWindow(Gtk.Window):
                                               env_ax,
                                               output_env_canvas)
         self.envelope_widget.activate(self.synth.has_output_envelope())
-        
+
         # edge box
         box = Gtk.Box()
         box.set_orientation(Gtk.Orientation.VERTICAL)
@@ -493,7 +466,7 @@ class MainWindow(Gtk.Window):
             self.synth.set_output_envelope([])
             self.envelope_widget.activate(False)
         self.envelope_widget.update_plot()
-        
+
     def switch_chain_plot(self,
                           chain_stack: Gtk.Stack,
                           gparamstring: str
@@ -504,49 +477,6 @@ class MainWindow(Gtk.Window):
         page_name = chain_stack.get_visible_child_name()
         self.chain_plot_stack.set_visible_child_name(page_name)
 
-    def _read_patch_from_file(self) -> dict:
-        dialog = Gtk.FileChooserDialog(title="choose a file",
-                                       parent=self,
-                                       action=Gtk.FileChooserAction.OPEN
-                                       )
-        dialog.add_buttons(Gtk.STOCK_CANCEL,
-                           Gtk.ResponseType.CANCEL,
-                           Gtk.STOCK_OK,
-                           Gtk.ResponseType.OK
-                           )
-        file_filter = Gtk.FileFilter()
-        file_filter.set_name("json files")
-        file_filter.add_mime_type("application/json")
-        dialog.add_filter(file_filter)
-        file_response = dialog.run()
-        if file_response == Gtk.ResponseType.OK:
-            patch_filename = dialog.get_filename()
-            dialog.destroy()
-            # don't like this, GtkApplication I think will solve this kind of thing
-            patch = None
-            try:
-                patch = fm.read_patch(patch_filename)
-            except json.JSONDecodeError:
-                self.show_patch_error_dialog(f"Error decoding json in {patch_filename}")
-            except jsonschema.ValidationError:
-                self.show_patch_error_dialog(f"Invalid patch file {patch_filename}")
-            return patch
-
-    def show_patch_error_dialog(self, message):
-        patch_error_dialog = Gtk.MessageDialog(
-            transient_for=self,
-            flags=0,
-            message_type=Gtk.MessageType.INFO,
-            buttons=Gtk.ButtonsType.OK,
-            text="Error"
-            )
-        patch_error_dialog.format_secondary_text(
-            message
-        )
-        response = patch_error_dialog.run()
-        if response == Gtk.ResponseType.OK:
-            patch_error_dialog.destroy()
-            
     def on_play_button_clicked(self, widget):
         """ Plays the sound of the synth's output.
 
@@ -600,12 +530,90 @@ class MainWindow(Gtk.Window):
         self.output_canvas.draw_idle()
 
 
+def read_patch_from_file() -> dict:
+    dialog = Gtk.FileChooserDialog(title="choose a file",
+                                   parent=None,
+                                   action=Gtk.FileChooserAction.OPEN
+                                   )
+    dialog.add_buttons(Gtk.STOCK_CANCEL,
+                       Gtk.ResponseType.CANCEL,
+                       Gtk.STOCK_OK,
+                       Gtk.ResponseType.OK
+                       )
+    file_filter = Gtk.FileFilter()
+    file_filter.set_name("json files")
+    file_filter.add_mime_type("application/json")
+    dialog.add_filter(file_filter)
+    file_response = dialog.run()
+    patch = None
+    if file_response == Gtk.ResponseType.OK:
+        patch_filename = dialog.get_filename()
+        dialog.destroy()
+        try:
+            patch = fm.read_patch(patch_filename)
+        except json.JSONDecodeError:
+            show_patch_error_dialog(
+                f"Error decoding json: {patch_filename}"
+            )
+        except jsonschema.ValidationError:
+            show_patch_error_dialog(
+                f"Invalid patch file: {patch_filename}"
+            )
+    return patch
+
+
+def show_patch_error_dialog(message):
+    patch_error_dialog = Gtk.MessageDialog(
+        transient_for=None,
+        flags=0,
+        message_type=Gtk.MessageType.INFO,
+        buttons=Gtk.ButtonsType.OK,
+        text="Error"
+    )
+    patch_error_dialog.format_secondary_text(
+        message
+    )
+    patch_error_dialog.run()
+    patch_error_dialog.destroy()
+
+
 def main():
     """ Sets up the main window, then begins Gtk.main() loop. """
-    try:
-        win = MainWindow()
-    except TypeError: # when error reading patch
-        sys.exit(1)
+
+    option_dialog = Gtk.MessageDialog(
+            transient_for=None,
+            flags=0,
+            message_type=Gtk.MessageType.QUESTION,
+            buttons=Gtk.ButtonsType.YES_NO,
+            text="",
+        )
+    option_dialog.format_secondary_text(
+        "Do you wish to open an existing patch?"
+    )
+
+    response = option_dialog.run()
+    option_dialog.destroy()
+    if response == Gtk.ResponseType.YES:  # choose patch from file
+        patch = read_patch_from_file()
+        if not patch:
+            sys.exit(1)
+    elif response == Gtk.ResponseType.NO:  # make new patch from algorithm
+        dialog = AlgorithmDialog()
+        response = dialog.run()
+        if response == Gtk.ResponseType.OK:
+            algorithm = dialog.get_algorithm()
+            dialog.destroy()
+            if not algorithm:
+                sys.exit(1)
+            patch = fm.new_patch_algorithm(algorithm)
+        else:  # close button clicked
+            dialog.destroy()
+            sys.exit(0)
+    else:  # ditto
+        sys.exit(0)
+
+    synth = fm.Synth(patch)
+    win = MainWindow(synth)
     win.connect("destroy", Gtk.main_quit)
     win.show_all()
     Gtk.main()
