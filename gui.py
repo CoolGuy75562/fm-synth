@@ -405,6 +405,12 @@ class MainWindow(Gtk.Window):
         chain_stack_switcher.set_stack(chain_stack)
         chain_stack.connect("notify::visible-child", self.switch_chain_plot)
 
+        # Envelope input area
+        self.envelope_widget = EnvelopeWidget(self.synth,
+                                              env_ax,
+                                              output_env_canvas)
+        self.envelope_widget.activate(self.synth.has_output_envelope())
+
         # initialise buttons
         play_button = Gtk.Button(label="Play")
         play_button.connect("clicked", self.on_play_button_clicked)
@@ -418,12 +424,6 @@ class MainWindow(Gtk.Window):
 
         about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_about_button_clicked)
-
-        # Envelope input area
-        self.envelope_widget = EnvelopeWidget(self.synth,
-                                              env_ax,
-                                              output_env_canvas)
-        self.envelope_widget.activate(self.synth.has_output_envelope())
 
         # edge box
         box = Gtk.Box()
