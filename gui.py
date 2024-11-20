@@ -11,7 +11,7 @@ FM synthesizer.
 #     This program is distributed in the hope that it will be useful,
 #     but WITHOUT ANY WARRANTY; without even the implied warranty of
 #     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#     GNU General Public License for more details.`
+#     GNU General Public License for more details.
 
 import sys
 import json
@@ -134,7 +134,7 @@ class AlgorithmDialog(Gtk.Dialog):
 
 
 class ChainWidget(Gtk.Grid):
-    """ A grid containing entries for the parameters
+    """ A widget containing entries for the parameters
     for each operator in a chain, and a button to update
     the chain's operator parameters to those new values.
 
@@ -223,6 +223,9 @@ class ChainWidget(Gtk.Grid):
                                 Gtk.PositionType.TOP, 1, 1)
 
     def on_update_button_clicked(self, widget):
+        """ Sets the synth parameters to the values in the entries
+            and calls method to update chain and output plots.
+        """
         freqs = [freq_sb.get_value() for freq_sb in self.freq_spinbuttons]
         mod_indices = [mi_sb.get_value() for mi_sb in self.mod_idx_spinbuttons]
         feedbacks = [fb_sb.get_value_as_int()
@@ -234,6 +237,9 @@ class ChainWidget(Gtk.Grid):
         self.update_chain_plot()
 
     def update_chain_plot(self) -> None:
+        """ Updates chain output plot and tells main window to
+            update its output plot.
+        """
         self.chain_ax.lines.clear()
         chain_plot_params = self.synth.get_chain_output_plot_params(
             self.chain_idx
@@ -244,9 +250,9 @@ class ChainWidget(Gtk.Grid):
 
 
 class EnvelopeWidget(Gtk.Grid):
-    """ Box which holds entries and plot for output envelope.
-        In the future this will also be able to deal with
-        envelopes of individual operators.
+    """ Widget with envelope parameter entries and
+        button to update output envelope to values in entries,
+        and update envelope plot.
     """
     def __init__(self, synth, env_ax, env_canvas):
         super().__init__()
@@ -291,17 +297,24 @@ class EnvelopeWidget(Gtk.Grid):
             self.attach(env_sb, 1, i+1, 1, 1)
 
     def on_update_output_env_button_clicked(self, widget):
+        """ Updates synth output envelope to values in
+            the entries, and makes call to update the envelope plot.
+        """
         output_env = [env_sb.get_value() for env_sb in self.env_spinbuttons]
         self.synth.set_output_envelope(output_env)
         self.update_plot()
 
     def update_plot(self) -> None:
+        """ Updates output envelope plot """
         self.env_ax.lines.clear()
         env_plot_params = self.synth.get_envelope_plot_params()
         self.env_ax.plot(*env_plot_params, color='k')
         self.env_canvas.draw_idle()
 
     def activate(self, val):
+        """ Disables update button and inputs if val is False,
+            enables if True.
+        """
         self.update_output_env_button.set_sensitive(val)
         for button in self.env_spinbuttons:
             button.set_sensitive(val)
@@ -393,8 +406,9 @@ class MainWindow(Gtk.Window):
             chain_canvas.draw_idle()
             return chain_ax, chain_canvas
 
-        # make chain stack and plot stack.
-        # chain widget each given reference to resp. plot
+        # Make chain stack of chain widgets and plot stack
+        # of chain plots.
+        # Chain widget each given reference to resp. plot
         chain_stack = Gtk.Stack()
         self.chain_plot_stack = Gtk.Stack()
         for i in range(len(self.synth.patch["algorithm"])):
@@ -414,6 +428,8 @@ class MainWindow(Gtk.Window):
         chain_stack_switcher = Gtk.StackSwitcher()
         chain_stack_switcher.set_orientation(Gtk.Orientation.VERTICAL)
         chain_stack_switcher.set_stack(chain_stack)
+        # The stack switcher can only control one stack,
+        # this is to get around that.
         chain_stack.connect("notify::visible-child", self.switch_chain_plot)
 
         # Envelope input area
@@ -422,7 +438,7 @@ class MainWindow(Gtk.Window):
                                               output_env_canvas)
         self.envelope_widget.activate(self.synth.has_output_envelope())
 
-        # initialise buttons
+        # Initialise buttons and sidebar
         play_button = Gtk.Button(label="Play")
         play_button.connect("clicked", self.on_play_button_clicked)
 
@@ -436,7 +452,7 @@ class MainWindow(Gtk.Window):
         about_button = Gtk.Button(label="About")
         about_button.connect("clicked", self.on_about_button_clicked)
 
-        # edge box
+        # Sidebar
         box = Gtk.Box()
         box.set_size_request(*SIDEBAR_SIZE)
         box.set_orientation(Gtk.Orientation.VERTICAL)
@@ -446,7 +462,7 @@ class MainWindow(Gtk.Window):
         box.pack_start(envelope_toggle, False, False, 0)
         box.pack_start(about_button, False, False, 0)
 
-        # figure frame
+        # Plots go in a grid
         figure_grid = Gtk.Grid()
         figure_grid.attach(self.output_canvas, 0, 0, 2, 4)
         figure_grid.attach(self.chain_plot_stack, 2, 0, 2, 2)
@@ -454,22 +470,25 @@ class MainWindow(Gtk.Window):
         figure_grid.set_row_spacing(10)
         figure_grid.set_column_spacing(10)
 
-        # lay everything out in a grid
+        # Finally, everything gets laid out in a grid:
         grid = Gtk.Grid()
+
         grid.attach(box, 0, 0, 1, 5)
-        # grid.attach(Gtk.Separator(), 1, 0, 1, 3)
-        # grid.attach(Gtk.Separator(), 1, 1, 3, 1)
+
         chain_stack_frame = Gtk.Frame()
         chain_stack_frame.set_size_request(*CHAIN_INPUT_SIZE)
         chain_stack_frame.add(chain_stack)
         grid.attach(chain_stack_frame, 1, 0, 12, 2)
+
         envelope_widget_frame = Gtk.Frame()
         envelope_widget_frame.set_size_request(*ENV_INPUT_SIZE)
         envelope_widget_frame.add(self.envelope_widget)
         grid.attach(envelope_widget_frame, 13, 0, 6, 2)
+
         figure_grid_frame = Gtk.Frame()
         figure_grid_frame.add(figure_grid)
         grid.attach(figure_grid_frame, 1, 2, 18, 3)
+
         self.add(grid)
         self.set_resizable(False)
 
@@ -494,11 +513,8 @@ class MainWindow(Gtk.Window):
         """ Runs a dialog for the user to name and select
         the location to save the current patch parameters
         in self.synth as a .json file. Then saves the file.
-
-        Args:
-            widget: Used for Gtk.Button.connect.
         """
-        dialog = Gtk.FileChooserDialog(title="save patch file as",
+        dialog = Gtk.FileChooserDialog(title="Save patch file as",
                                        parent=self,
                                        action=Gtk.FileChooserAction.SAVE
                                        )
@@ -546,6 +562,12 @@ class MainWindow(Gtk.Window):
 
 
 def read_patch_from_file() -> dict:
+    """ Opens dialog to choose a patch file.
+        If error reading json or json is not in the correct
+        format for patch, a dialog shows the error.
+
+        Returns patch if no errors, else None
+    """
     dialog = Gtk.FileChooserDialog(title="choose a file",
                                    parent=None,
                                    action=Gtk.FileChooserAction.OPEN
@@ -593,7 +615,14 @@ def show_patch_error_dialog(message):
 
 
 def main():
-    """ Sets up the main window, then begins Gtk.main() loop. """
+    """ Initialise patch by either specifying an algorithm from
+    a dialog, or by opening an existing patch file from a file
+    dialog. If there are any errors, or the dialogs are closed,
+    the programme ends before starting the main window.
+
+    The patch is used to initialise the Synth object which is given
+    to the main window. Then we begin the Gtk.main loop.
+    """
 
     option_dialog = Gtk.MessageDialog(
             transient_for=None,
