@@ -17,8 +17,9 @@ import sys
 import json
 import jsonschema
 import fm  # fm.py
+from abc import abstractmethod
+from abc import ABC
 from matplotlib.figure import Figure
-from matplotlib.axes import Axes
 from matplotlib.backends.backend_gtk3agg import \
     FigureCanvasGTK3Agg as FigureCanvas  # for figures in gtk window
 from gi.repository import Gtk
@@ -153,11 +154,11 @@ class ChainWidget(Gtk.Grid):
         chain_canvas: The canvas containing the chain output plot
         chain_ax: The Axes object for the chain output plot
     """
-    def __init__(self, synth: fm.Synth,
-                 chain_ax: Axes,
-                 chain_canvas: FigureCanvas,
+    def __init__(self,
+                 synth: fm.Synth,
+                 chain_output_plot,
+                 output_plot,
                  chain_idx: int,
-                 main_window: Gtk.Window
                  ) -> None:
         """ Sets up an input grid for parameters of an individual chain.
 
@@ -174,7 +175,8 @@ class ChainWidget(Gtk.Grid):
         super().__init__()
         self.synth = synth
         self.chain_idx = chain_idx
-        self.main_window = main_window
+        self.chain_output_plot = chain_output_plot
+        self.output_plot = output_plot
 
         # set up spinbuttons and update button
         # for entering and updating chain parameters
@@ -202,8 +204,6 @@ class ChainWidget(Gtk.Grid):
         param_names = ["Frequency", "Modulation Index", "Feedback"]
         chain_param_labels = [Gtk.Label(label=param_name)
                               for param_name in param_names]
-
-        self.chain_ax, self.chain_canvas = chain_ax, chain_canvas
 
         # spinbuttons and update button go in a grid
         self.attach(update_button, 0, 0, 1, 1)
@@ -234,19 +234,8 @@ class ChainWidget(Gtk.Grid):
         self.synth.set_chain_params((freqs, mod_indices, envs, feedbacks),
                                     self.chain_idx
                                     )
-        self.update_chain_plot()
-
-    def update_chain_plot(self) -> None:
-        """ Updates chain output plot and tells main window to
-            update its output plot.
-        """
-        self.chain_ax.lines.clear()
-        chain_plot_params = self.synth.get_chain_output_plot_params(
-            self.chain_idx
-        )
-        self.chain_ax.plot(*chain_plot_params, color='k')
-        self.chain_canvas.draw_idle()
-        self.main_window.update_plot()
+        self.chain_output_plot.update_plot()
+        self.output_plot.update_plot()
 
 
 class EnvelopeWidget(Gtk.Grid):
@@ -254,12 +243,10 @@ class EnvelopeWidget(Gtk.Grid):
         button to update output envelope to values in entries,
         and update envelope plot.
     """
-    def __init__(self, synth, env_ax, env_canvas):
+    def __init__(self, synth, envelope_plot):
         super().__init__()
         self.synth = synth
-
-        # initialise envelope plot
-        self.env_ax, self.env_canvas = env_ax, env_canvas
+        self.envelope_plot = envelope_plot
 
         # initialise envelope parameter headers
         env_headers = []
@@ -302,14 +289,7 @@ class EnvelopeWidget(Gtk.Grid):
         """
         output_env = [env_sb.get_value() for env_sb in self.env_spinbuttons]
         self.synth.set_output_envelope(output_env)
-        self.update_plot()
-
-    def update_plot(self) -> None:
-        """ Updates output envelope plot """
-        self.env_ax.lines.clear()
-        env_plot_params = self.synth.get_envelope_plot_params()
-        self.env_ax.plot(*env_plot_params, color='k')
-        self.env_canvas.draw_idle()
+        self.envelope_plot.update_plot()
 
     def activate(self, val):
         """ Disables update button and inputs if val is False,
@@ -320,15 +300,133 @@ class EnvelopeWidget(Gtk.Grid):
             button.set_sensitive(val)
 
 
+class Plot(ABC):
+
+    @abstractmethod
+    def update_plot(self):
+        pass
+
+    @property
+    @abstractmethod
+    def canvas(self):
+        pass
+
+
+class ChainOutputPlot(Plot):
+
+    def __init__(self, synth, chain_idx):
+        self._synth = synth
+        self._chain_idx = chain_idx
+
+        fig = Figure()
+        self._canvas = FigureCanvas(fig)
+        self._canvas.set_size_request(*CHAIN_CANVAS_SIZE)
+
+        self._ax = fig.add_subplot()
+        self._ax.set_xlim(*CHAIN_XLIM)
+        self._ax.set_ylim(*CHAIN_YLIM)
+        self._ax.set_xticks(CHAIN_XTICKS)
+        self._ax.set_yticks(CHAIN_YTICKS)
+        self._ax.set_title(
+            f"Chain {chain_idx+1} Output",
+            fontsize=CHAIN_TITLE_FONTSIZE
+        )
+
+        plot_params = self._synth.get_chain_output_plot_params(
+            self._chain_idx
+        )
+        self._ax.plot(*plot_params, color=CHAIN_COLOR)
+        fig.set_tight_layout(True)
+        self._canvas.draw_idle()
+
+    def update_plot(self):
+        self._ax.lines.clear()
+        plot_params = self._synth.get_chain_output_plot_params(
+            self._chain_idx
+        )
+        self._ax.plot(*plot_params, color=CHAIN_COLOR)
+        self._canvas.draw_idle()
+
+    @property
+    def canvas(self):
+        return self._canvas
+
+
+class EnvelopePlot(Plot):
+
+    def __init__(self, synth):
+        self._synth = synth
+
+        fig = Figure()
+        self._canvas = FigureCanvas(fig)
+        self._canvas.set_size_request(*ENV_CANVAS_SIZE)
+
+        self._ax = fig.add_subplot()
+        self._ax.set_xlim(*ENV_XLIM)
+        self._ax.set_ylim(*ENV_YLIM)
+        self._ax.set_yticks(ENV_YTICKS)
+        self._ax.set_title("Output Envelope", fontsize=ENV_TITLE_FONTSIZE)
+
+        plot_params = self._synth.get_envelope_plot_params()
+        self._ax.plot(*plot_params, color=ENV_COLOR)
+        fig.set_tight_layout(True)
+        self._canvas.draw_idle()
+
+    def update_plot(self):
+        self._ax.lines.clear()
+        plot_params = self._synth.get_envelope_plot_params()
+        self._ax.plot(*plot_params, color=ENV_COLOR)
+        self._canvas.draw_idle()
+
+    @property
+    def canvas(self):
+        return self._canvas
+
+
+class OutputPlot(Plot):
+
+    def __init__(self, synth):
+        self._synth = synth
+
+        fig = Figure()
+        self._canvas = FigureCanvas(fig)
+        self._canvas.set_size_request(*OUTPUT_CANVAS_SIZE)
+
+        self._ax = fig.add_subplot()
+        self._ax.set_xlim(*OUTPUT_XLIM)
+        self._ax.set_ylim(*OUTPUT_YLIM)
+        self._ax.set_xticks(OUTPUT_XTICKS)
+        self._ax.set_yticks(OUTPUT_YTICKS)
+        self._ax.set_title(
+            "Output",
+            fontsize=OUTPUT_TITLE_FONTSIZE
+        )
+
+        plot_params = self._synth.get_output_plot_params()
+        self._ax.plot(*plot_params, color=OUTPUT_COLOR)
+        fig.set_tight_layout(True)
+        self._canvas.draw_idle()
+
+    def update_plot(self):
+        self._ax.lines.clear()
+        plot_params = self._synth.get_output_plot_params()
+        self._ax.plot(*plot_params, color=OUTPUT_COLOR)
+        self._canvas.draw_idle()
+
+    @property
+    def canvas(self):
+        return self._canvas
+
+
 class MainWindow(Gtk.Window):
     """ Gtk window which provides the interface between
-    the user and the Synth object synth, and is also responsible
-    for choosing the synth patch parameter.
+    the user and the Synth object synth.
 
     MainWindow contains three main areas, which are laid out in a Gtk.Grid:
         - A sidebar which has a play button, a save button,
               and buttons to switch the visible chain input area
-              and chain plot.
+              and chain plot. And a checkbox to enable or disable
+              the output envelope.
         - Input areas for chains and the output envelope.
         - An output plot, plot for the current chain output,
               and output envelope plot.
@@ -336,8 +434,9 @@ class MainWindow(Gtk.Window):
     Attributes:
         synth: An fm.Synth object which is responsible for all synth
             computations and handling patch data
-        output_ax: The Axes object containing the output plot.
-        output_canvas: The FigureCanvas containing output_ax.
+        envelope_plot: An EnvelopePlot object which updates the envelope
+            plot in the envelope FigureCanvas when the envelope is toggled
+            on/off.
         chain_plot_stack: A stack containing a plot for each chain.
             When the chain stack visible child is changed to another chain,
             the visible chain plot is changed to the respective chain.
@@ -354,75 +453,25 @@ class MainWindow(Gtk.Window):
         super().__init__(title="FM Synthesizer")
         self.synth = synth
 
-        # Initialise figures, chain stack, and chain stack switcher
+        # Initialise plots, chain stack, and chain stack switcher
+        output_plot = OutputPlot(self.synth)
+        self.envelope_plot = EnvelopePlot(self.synth)
 
-        # output plot
-        fig = Figure()
-        self.output_canvas = FigureCanvas(fig)
-        self.output_canvas.set_size_request(*OUTPUT_CANVAS_SIZE)
-        self.output_ax = fig.add_subplot(111)
-        self.output_ax.set_xlim(*OUTPUT_XLIM)
-        self.output_ax.set_ylim(*OUTPUT_YLIM)
-        self.output_ax.set_xticks(OUTPUT_XTICKS)
-        self.output_ax.set_yticks(OUTPUT_YTICKS)
-        self.output_ax.set_title("Output",
-                                 fontsize=OUTPUT_TITLE_FONTSIZE)
-        output_plot_params = self.synth.get_output_plot_params()
-        self.output_ax.plot(*output_plot_params, color=OUTPUT_COLOR)
-        fig.set_tight_layout(True)
-
-        # envelope plot
-        fig = Figure()
-        output_env_canvas = FigureCanvas(fig)
-        output_env_canvas.set_size_request(*ENV_CANVAS_SIZE)
-        env_ax = fig.add_subplot(111)
-        env_ax.set_xlim(*ENV_XLIM)
-        env_ax.set_ylim(*ENV_YLIM)
-        env_ax.set_yticks(ENV_YTICKS)
-        env_ax.set_title("Envelope",
-                         fontsize=ENV_TITLE_FONTSIZE)
-        env_plot_params = self.synth.get_envelope_plot_params()
-        env_ax.plot(*env_plot_params, color=ENV_COLOR)
-        fig.set_tight_layout(True)
-        output_env_canvas.draw_idle()
-
-        # chain plot for each chain
-        def _init_chain_plot(chain_idx: int) -> tuple[Axes, FigureCanvas]:
-            fig = Figure()
-            chain_canvas = FigureCanvas(fig)
-            chain_canvas.set_size_request(*CHAIN_CANVAS_SIZE)
-            chain_ax = fig.add_subplot(111)
-            chain_ax.set_xlim(*CHAIN_XLIM)
-            chain_ax.set_ylim(*CHAIN_YLIM)
-            chain_ax.set_xticks(CHAIN_XTICKS)
-            chain_ax.set_yticks(CHAIN_YTICKS)
-            chain_ax.set_title(f"Chain {chain_idx+1} Output",
-                               fontsize=CHAIN_TITLE_FONTSIZE)
-            chain_ax_plot_params = self.synth.get_chain_output_plot_params(
-                chain_idx
-            )
-            chain_ax.plot(*chain_ax_plot_params, color=CHAIN_COLOR)
-            fig.set_tight_layout(True)
-            chain_canvas.draw_idle()
-            return chain_ax, chain_canvas
-
-        # Make chain stack of chain widgets and plot stack
-        # of chain plots.
-        # Chain widget each given reference to resp. plot
         chain_stack = Gtk.Stack()
         self.chain_plot_stack = Gtk.Stack()
         for i in range(len(self.synth.patch["algorithm"])):
-            chain_ax, chain_canvas = _init_chain_plot(i)
-            self.chain_plot_stack.add_titled(chain_canvas,
-                                             str(i),
-                                             f"Chain {i+1}"
-                                             )
-            chain_widget = ChainWidget(self.synth,
-                                       chain_ax,
-                                       chain_canvas,
-                                       i,
-                                       self
-                                       )
+            chain_output_plot = ChainOutputPlot(self.synth, i)
+            self.chain_plot_stack.add_titled(
+                chain_output_plot.canvas,
+                str(i),
+                f"Chain {i+1}"
+            )
+            chain_widget = ChainWidget(
+                self.synth,
+                chain_output_plot,
+                output_plot,
+                i
+            )
             chain_stack.add_titled(chain_widget, str(i), f"Chain {i+1}")
 
         chain_stack_switcher = Gtk.StackSwitcher()
@@ -433,9 +482,7 @@ class MainWindow(Gtk.Window):
         chain_stack.connect("notify::visible-child", self.switch_chain_plot)
 
         # Envelope input area
-        self.envelope_widget = EnvelopeWidget(self.synth,
-                                              env_ax,
-                                              output_env_canvas)
+        self.envelope_widget = EnvelopeWidget(self.synth, self.envelope_plot)
         self.envelope_widget.activate(self.synth.has_output_envelope())
 
         # Initialise buttons and sidebar
@@ -464,9 +511,9 @@ class MainWindow(Gtk.Window):
 
         # Plots go in a grid
         figure_grid = Gtk.Grid()
-        figure_grid.attach(self.output_canvas, 0, 0, 2, 4)
+        figure_grid.attach(output_plot.canvas, 0, 0, 2, 4)
         figure_grid.attach(self.chain_plot_stack, 2, 0, 2, 2)
-        figure_grid.attach(output_env_canvas, 2, 2, 2, 2)
+        figure_grid.attach(self.envelope_plot.canvas, 2, 2, 2, 2)
         figure_grid.set_row_spacing(10)
         figure_grid.set_column_spacing(10)
 
@@ -499,7 +546,7 @@ class MainWindow(Gtk.Window):
         else:
             self.synth.set_output_envelope([])
             self.envelope_widget.activate(False)
-        self.envelope_widget.update_plot()
+        self.envelope_plot.update_plot()
 
     def on_play_button_clicked(self, widget):
         """ Plays the sound of the synth's output.
@@ -552,13 +599,6 @@ class MainWindow(Gtk.Window):
         """
         page_name = chain_stack.get_visible_child_name()
         self.chain_plot_stack.set_visible_child_name(page_name)
-
-    def update_plot(self):
-        """ updates the output plot. """
-        self.output_ax.lines.clear()
-        output_plot_params = self.synth.get_output_plot_params()
-        self.output_ax.plot(*output_plot_params, color='k')
-        self.output_canvas.draw_idle()
 
 
 def read_patch_from_file() -> dict:
