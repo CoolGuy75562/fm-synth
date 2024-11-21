@@ -173,7 +173,7 @@ class OperatorChain:
         operators: A list of the operators in the chain,
           with smaller index being operator earlier in the chain.
     """
-    def __init__(self, n_ops: int, mod_0: np.ndarray, op_params: tuple
+    def __init__(self, n_ops: int, mod_0: np.ndarray, volume, op_params: tuple
                  ) -> None:
         if not n_ops:
             raise ValueError()
@@ -183,6 +183,7 @@ class OperatorChain:
         self.n_ops = n_ops
         self.freqs, self.mod_indices, self.envs, self.feedback = op_params
         self.mod_0 = mod_0
+        self.volume = volume
         operators = []
         curr_op = Operator(self.freqs[0],
                            self.mod_indices[0],
@@ -199,9 +200,13 @@ class OperatorChain:
             op = Operator(freq, mi, env, fb, curr_op.out)
             operators.append(op)
             curr_op = op
-        self.output = curr_op.out
+        self._output = curr_op.out
         self.operators = operators
 
+    @property
+    def output(self):
+        return np.multiply(self.volume, self._output)
+    
     def set_new_op_params(self, op_params: list[list]) -> None:
         """ Finds first operator whose parameters are being changed, then
         calls update_output to compute the new chain output.
@@ -250,7 +255,7 @@ class OperatorChain:
             op.freq, op.mod_idx, op.env, op.fb = freq, mi, env, fb
             op.mod = curr_op.out
             curr_op = op
-        self.output = curr_op.out
+        self._output = curr_op.out
 
 
 class Synth:
@@ -270,13 +275,14 @@ class Synth:
         self.patch = patch
         self.algorithm = self.patch["algorithm"]
         chains = []
-        for a, f, mi, e, m_0, fb in zip(self.algorithm,
-                                        self.patch["freqs"],
-                                        self.patch["mod_indices"],
-                                        self.patch["envs"],
-                                        self.patch["mod_0"],
-                                        self.patch["feedback"]):
-            chains.append(OperatorChain(a, m_0, (f, mi, e, fb)))
+        for a, v, f, mi, e, m_0, fb in zip(self.algorithm,
+                                           self.patch["volume"],
+                                           self.patch["freqs"],
+                                           self.patch["mod_indices"],
+                                           self.patch["envs"],
+                                           self.patch["mod_0"],
+                                           self.patch["feedback"]):
+            chains.append(OperatorChain(a, m_0, v, (f, mi, e, fb)))
         self.chains = chains
         self.output = addsyn(
             [getattr(chain, 'output') for chain in self.chains]
@@ -358,6 +364,11 @@ class Synth:
             self.patch[param_name][chain_idx] = op_params[i]
         self._update_output()
 
+    def set_chain_volume(self, volume, chain_idx):
+        self.chains[chain_idx].volume = volume
+        self.patch["volume"][chain_idx] = volume
+        self._update_output()
+        
     def set_output_envelope(self, vals: list[int | float]) -> None:
         self.patch["output_env"] = vals
         self._update_output_envelope()
@@ -484,6 +495,10 @@ def read_patch(patch_filename: str) -> dict:
                 "type": "array",
                 "items": {"type": "number"}
             },
+            "volume": {
+                "type": "array",
+                "items": {"type": "number"}
+            },
             "freqs": {
                 "type": "array",
                 "items": {"type": "array",
@@ -515,7 +530,7 @@ def read_patch(patch_filename: str) -> dict:
         },
         "required": ["algorithm", "mod_0", "freqs",
                      "mod_indices", "feedback",
-                     "output_env", "envs"
+                     "output_env", "envs", "volume"
                      ]
     }
 
@@ -544,13 +559,15 @@ def new_patch_algorithm(algorithm: list[int]) -> dict:
     feedback = reshape_list([0]*n_ops, algorithm)
     output_env = []
     mod_0 = [0]*len(algorithm)
+    volume = [1.0]*len(algorithm)
     patch = {"freqs": freqs,
              "mod_indices": mod_indices,
              "envs": envs,
              "output_env": output_env,
              "mod_0": mod_0,
              "algorithm": algorithm,
-             "feedback": feedback
+             "feedback": feedback,
+             "volume": volume
              }
     print(patch)
     return patch

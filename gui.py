@@ -27,8 +27,7 @@ import gi
 
 gi.require_version("Gtk", "3.0")
 settings = Gtk.Settings.get_default()
-settings.set_property("gtk-theme-name", "Numix")
-# turn off dark mode
+settings.set_property("gtk-theme-name", "Adwaita")
 settings.set_property("gtk-application-prefer-dark-theme", False)
 
 OUTPUT_XLIM = (0, fm.T[fm.PLOT_LIM])
@@ -139,20 +138,17 @@ class ChainWidget(Gtk.Grid):
     for each operator in a chain, and a button to update
     the chain's operator parameters to those new values.
 
-    ChainWidget is passed a reference to the chain output plot,
-    so that when the chain parameters are updated,
-    the chain output plot is updated. Similarly it is given a
-    reference to the main window so that it can tell the main window
-    to update the output plot when a chain's output changes.
+    ChainWidget is given chain_output_plot and output_plot
+    objects to update the plot when the synth is updated.
 
     Attributes:
         synth: The synth object
         chain_idx: Which chain in synth we are working with
-        main_window: The main window
         *_spinbuttons: List of spinbuttons for entry for
             respective operator parameters.
-        chain_canvas: The canvas containing the chain output plot
-        chain_ax: The Axes object for the chain output plot
+        chain_output_plot: The ChainOutputPlot object corresponding
+            to chain chain_idx
+        output_plot: The OutputPlot object for the main output
     """
     def __init__(self,
                  synth: fm.Synth,
@@ -201,15 +197,28 @@ class ChainWidget(Gtk.Grid):
         self.freq_spinbuttons = _init_chain_param_spinbuttons("freqs")
         self.mod_idx_spinbuttons = _init_chain_param_spinbuttons("mod_indices")
         self.feedback_spinbuttons = _init_chain_param_spinbuttons("feedback")
-        param_names = ["Frequency", "Modulation Index", "Feedback"]
-        chain_param_labels = [Gtk.Label(label=param_name)
-                              for param_name in param_names]
 
+        volume_scale = Gtk.Scale()
+        volume_adjustment = {
+            "value": 0,
+            "lower": 0,
+            "upper": 1.0,
+            "step_increment": 0.01,
+            "page_increment": 0.1,
+            "page_size": 0
+        }
+        volume_scale.set_adjustment(Gtk.Adjustment(**volume_adjustment))
+        volume_scale.set_digits(2)
+        volume_scale.set_value(self.synth.patch["volume"][self.chain_idx])
+        volume_scale.connect("value-changed", self.on_volume_scale_changed)
+        volume_scale.set_orientation(Gtk.Orientation.HORIZONTAL)
+        
         # spinbuttons and update button go in a grid
         self.attach(update_button, 0, 0, 1, 1)
-        self.attach(chain_param_labels[0], 0, 1, 1, 1)
-        self.attach(chain_param_labels[1], 0, 2, 1, 1)
-        self.attach(chain_param_labels[2], 0, 3, 1, 1)
+        self.attach(Gtk.Label(label="Frequency"), 0, 1, 1, 1)
+        self.attach(Gtk.Label(label="Modulation Index"), 0, 2, 1, 1)
+        self.attach(Gtk.Label(label="Feedback"), 0, 3, 1, 1)
+        self.attach(Gtk.Label(label="Volume"), 0, 4, 1, 1)
         for i, (freq_sb, mi_sb, fb_sb) in enumerate(zip(
                 self.freq_spinbuttons,
                 self.mod_idx_spinbuttons,
@@ -221,7 +230,8 @@ class ChainWidget(Gtk.Grid):
             op_label = Gtk.Label(label=f"Operator {str(i+1)}")
             self.attach_next_to(op_label, freq_sb,
                                 Gtk.PositionType.TOP, 1, 1)
-
+        self.attach(volume_scale, 1, 4, 2, 1)
+        
     def on_update_button_clicked(self, widget):
         """ Sets the synth parameters to the values in the entries
             and calls method to update chain and output plots.
@@ -237,7 +247,12 @@ class ChainWidget(Gtk.Grid):
         self.chain_output_plot.update_plot()
         self.output_plot.update_plot()
 
+    def on_volume_scale_changed(self, scale):
+        self.synth.set_chain_volume(scale.get_value(), self.chain_idx)
+        self.chain_output_plot.update_plot()
+        self.output_plot.update_plot()
 
+        
 class EnvelopeWidget(Gtk.Grid):
     """ Widget with envelope parameter entries and
         button to update output envelope to values in entries,
@@ -514,8 +529,6 @@ class MainWindow(Gtk.Window):
         figure_grid.attach(output_plot.canvas, 0, 0, 2, 4)
         figure_grid.attach(self.chain_plot_stack, 2, 0, 2, 2)
         figure_grid.attach(self.envelope_plot.canvas, 2, 2, 2, 2)
-        figure_grid.set_row_spacing(10)
-        figure_grid.set_column_spacing(10)
 
         # Finally, everything gets laid out in a grid:
         grid = Gtk.Grid()

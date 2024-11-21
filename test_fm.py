@@ -106,13 +106,15 @@ class TestNewPatchAlgorithm(unittest.TestCase):
         envs = [[[], []], [[], []], [[], []]]
         feedback = [[0, 0], [0, 0], [0, 0]]
         mod_0 = [0, 0, 0]
+        volume = [1.0, 1.0, 1.0]
         expected_patch = {"freqs": freqs,
                           "mod_indices": mod_indices,
                           "envs": envs,
                           "output_env": output_env,
                           "mod_0": mod_0,
                           "algorithm": alg,
-                          "feedback": feedback
+                          "feedback": feedback,
+                          "volume": volume
                           }
         self.assertEqual(fm.new_patch_algorithm(alg), expected_patch)
 
@@ -124,13 +126,15 @@ class TestNewPatchAlgorithm(unittest.TestCase):
         envs = [[[]], [[], []], [[], [], []]]
         feedback = [[0], [0, 0], [0, 0, 0]]
         mod_0 = [0, 0, 0]
+        volume = [1.0, 1.0, 1.0]
         expected_patch = {"freqs": freqs,
                           "mod_indices": mod_indices,
                           "envs": envs,
                           "output_env": output_env,
                           "mod_0": mod_0,
                           "algorithm": alg,
-                          "feedback": feedback
+                          "feedback": feedback,
+                          "volume": volume
                           }
         self.assertEqual(fm.new_patch_algorithm(alg), expected_patch)
 
@@ -142,13 +146,15 @@ class TestNewPatchAlgorithm(unittest.TestCase):
         envs = [[[]], [[]], [[]]]
         feedback = [[0], [0], [0]]
         mod_0 = [0, 0, 0]
+        volume = [1.0, 1.0, 1.0]
         expected_patch = {"freqs": freqs,
                           "mod_indices": mod_indices,
                           "envs": envs,
                           "output_env": output_env,
                           "mod_0": mod_0,
                           "algorithm": alg,
-                          "feedback": feedback
+                          "feedback": feedback,
+                          "volume": volume
                           }
         self.assertEqual(fm.new_patch_algorithm(alg), expected_patch)
 
@@ -160,13 +166,15 @@ class TestNewPatchAlgorithm(unittest.TestCase):
         envs = [[[]]]
         feedback = [[0]]
         mod_0 = [0]
+        volume = [1.0]
         expected_patch = {"freqs": freqs,
                           "mod_indices": mod_indices,
                           "envs": envs,
                           "output_env": output_env,
                           "mod_0": mod_0,
                           "algorithm": alg,
-                          "feedback": feedback
+                          "feedback": feedback,
+                          "volume": volume
                           }
         self.assertEqual(fm.new_patch_algorithm(alg), expected_patch)
 
@@ -176,13 +184,15 @@ class TestNewPatchAlgorithm(unittest.TestCase):
         envs = [[[], []]]
         feedback = [[0, 0]]
         mod_0 = [0]
+        volume = [1.0]
         expected_patch = {"freqs": freqs,
                           "mod_indices": mod_indices,
                           "envs": envs,
                           "output_env": output_env,
                           "mod_0": mod_0,
                           "algorithm": alg,
-                          "feedback": feedback
+                          "feedback": feedback,
+                          "volume": volume
                           }
         self.assertEqual(fm.new_patch_algorithm(alg), expected_patch)
 
